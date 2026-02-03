@@ -7,14 +7,12 @@ simulation output files.
 from . import parsers
 from . import mesh
 from . import elements
-from . import fields
 from . import utils
 
 # Import specific classes for convenience at package level
 from .parsers import BinHeader, BinHeader64, read_stag_bin
 from .mesh import SphericalMesh, Hex2DMesh, YinYangMesh
 from .elements import Element, Element2D, Q1_2D
-from .fields import Field, ScalarField, VectorField
 from .utils.timeseries import write_timeseries_pvd, append_timeseries_pvd
 
 # Define version
@@ -34,10 +32,6 @@ __all__ = [
   'Element',
   'Element2D',
   'Q1_2D',
-  'fields',
-  'Field',
-  'ScalarField',
-  'VectorField',
   'utils',
   'write_timeseries_pvd',
   'append_timeseries_pvd',
