@@ -130,3 +130,73 @@ class Element3D(Element):
     else:
       raise ValueError("J must be 2D or 3D array.")
     return invJ
+  
+class SurfaceElement(Element):
+  """
+  Specialized class for 2D surface elements embedded in 3D space.
+  """
+  def __init__(self):
+    super().__init__()
+    self.dim = 3
+    return
+  
+  def normal_vector_nonu(self, J:np.ndarray) -> np.ndarray:
+    if J.ndim == 2:
+      # Single element
+      tangent1 = J[:,0]
+      tangent2 = J[:,1]
+      normal = np.cross(tangent1, tangent2)
+    elif J.ndim == 3:
+      # Multiple elements
+      tangent1 = J[:,:,0] # shape (n_elements, 3)
+      tangent2 = J[:,:,1] # shape (n_elements, 3)
+      normal = np.cross(tangent1, tangent2)
+    else:
+      raise ValueError("J must be 2D or 3D array.")
+    return normal
+  
+  def normal_vector(self, J:np.ndarray) -> np.ndarray:
+    normal = self.normal_vector_nonu(J)
+    norm   = self.evaluate_detJ(J)
+    if J.ndim == 2:
+      normal /= norm
+    elif J.ndim == 3:
+      normal /= norm[:, np.newaxis]
+    return normal
+  
+  def evaluate_detG(self, J:np.ndarray) -> float|np.ndarray:
+    normal = self.normal_vector_nonu(J)
+    if J.ndim == 2:
+      detG = np.dot(normal, normal)
+    elif J.ndim == 3:
+      detG = np.einsum('ei,ei->e', normal, normal)
+    else:
+      raise ValueError("J must be 2D or 3D array.")
+    return detG
+
+  def evaluate_detJ(self, J:np.ndarray) -> float|np.ndarray:
+    detG = self.evaluate_detG(J)
+    detJ = np.sqrt(detG)
+    return detJ
+
+  def evaluate_metric_tensor(self, J:np.ndarray) -> np.ndarray:
+    if J.ndim == 2:
+      G = np.matmul(J.T, J)
+    elif J.ndim == 3:
+      G = np.einsum('eki,ekj->eij', J, J)
+    else:
+      raise ValueError("J must be 2D or 3D array.")
+    return G
+
+  def evaluate_dNidx(self, J:np.ndarray, GNi:np.ndarray) -> np.ndarray:
+    G = self.evaluate_metric_tensor(J)
+    detG = self.evaluate_detG(J)
+    invG = Element3D().evaluate_invJ(G, detG)
+    # Compute global derivatives dN/dx = J * invG * GNi
+    if J.ndim == 2:
+      M = np.einsum('ik,kj->ij', J, invG)  # shape (3,2)
+      dNidx = np.einsum('ji,ki->kj', M, GNi)  # shape (nnodes, 3)
+    elif J.ndim == 3:
+      M = np.einsum('eik,ekj->eij', J, invG)  # shape (n_elements, 3, 2)
+      dNidx = np.einsum('eji,eki->ekj', M, GNi)  # shape (n_elements, nnodes, 3)
+    return dNidx
