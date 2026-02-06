@@ -8,9 +8,11 @@ from scipy.spatial import ConvexHull
 try:
   from ..parsers import BinHeader64, BinHeader, read_stag_bin
   from ..elements.wedge_3d import Wedge3D
+  from .shell import ShellMesh
 except ImportError:
   from stagpyviz.parsers import BinHeader64, BinHeader, read_stag_bin
   from stagpyviz.elements.wedge_3d import Wedge3D
+  from stagpyviz.mesh.shell import ShellMesh
 
 class YinYangMesh(pvs.UnstructuredGrid):
   """
@@ -28,13 +30,13 @@ class YinYangMesh(pvs.UnstructuredGrid):
     # Read the binary file to extract information about the grid
     self.header, _ = read_stag_bin(rawbin)
     
-    self.yin  = None
-    self.yang = None
-    self._good_indices = None
-    self._points_per_layer = None
-    self._surface_mesh = None
-    self._points_spherical = None
-    self._centroids = None
+    self.yin                  = None
+    self.yang                 = None
+    self._good_indices        = None
+    self._points_per_layer    = None
+    self._surface_mesh        = None
+    self._points_spherical    = None
+    self._centroids           = None
     self._centroids_spherical = None
     self.elements:Wedge3D = Wedge3D()
 
@@ -299,7 +301,7 @@ class YinYangMesh(pvs.UnstructuredGrid):
     return idx
 
   @property
-  def surface_mesh(self) -> pvs.UnstructuredGrid:
+  def surface_mesh(self) -> ShellMesh:
     if self._surface_mesh is None:
       self.generate_surface_mesh()
     return self._surface_mesh
@@ -324,8 +326,9 @@ class YinYangMesh(pvs.UnstructuredGrid):
     Z[:,ppl:2*ppl] = self.yang["z"].T
 
     points = np.array([X[n[2]-1,:], Y[n[2]-1,:], Z[n[2]-1,:]]).T
-    hull = ConvexHull(points)
-    self._surface_mesh = pvs.UnstructuredGrid({pvs.CellType.TRIANGLE: hull.simplices}, points)
+    self._surface_mesh = ShellMesh(points)
+    #hull = ConvexHull(points)
+    #self._surface_mesh = pvs.UnstructuredGrid({pvs.CellType.TRIANGLE: hull.simplices}, points)
     return 
 
   def construct_mesh(self):
@@ -569,56 +572,7 @@ def test():
   mesh_file   = os.path.join(os.environ["SOFTS"],"StagYY","stagpyviz","yinyang_wedge.vtu")
   mesh_with_fields = os.path.join(os.environ["SOFTS"],"StagYY","stagpyviz","yinyang_wedge_with_fields.vtu")
 
-  mesh:YinYangMesh = YinYangMesh(rawbin_file, mesh_file)
-  
-  print(mesh.number_of_cells)
-  elidx = mesh.cell_connectivity.reshape((-1, mesh.nodes_per_el))
-  print(elidx.shape)
-  print(elidx)
-
-  print(mesh.points[elidx[0,:], :])
-
-  import matplotlib.pyplot as plt
-  fig = plt.figure()
-  ax = fig.add_subplot(121,projection='3d')
-  for k in range(mesh.nodes_per_el):
-    ax.scatter(
-      mesh.points[elidx[0,k],0],
-      mesh.points[elidx[0,k],1],
-      mesh.points[elidx[0,k],2],
-      label=f"Node {k}"
-    )
-  ax.legend()
-  ax = fig.add_subplot(122,projection='3d')
-  for k in range(mesh.nodes_per_el):
-    ax.scatter(
-      mesh.points[elidx[5,k],0],
-      mesh.points[elidx[5,k],1],
-      mesh.points[elidx[5,k],2],
-      label=f"Node {k}"
-    )
-  ax.legend()
-  
-  fig2 = plt.figure()
-  ax = fig2.add_subplot(111,projection='3d')
-  for k in range(mesh.nodes_per_el):
-    ax.scatter(
-      mesh.points[elidx[0,k],0],
-      mesh.points[elidx[0,k],1],
-      mesh.points[elidx[0,k],2],
-      label=f"El 0 Node {k}"
-    )
-    ax.scatter(
-      mesh.points[elidx[5,k],0],
-      mesh.points[elidx[5,k],1],
-      mesh.points[elidx[5,k],2],
-      label=f"El 5 Node {k}"
-    )
-  ax.legend()
-
-  plt.show()
-
-  exit()
+  mesh:YinYangMesh = YinYangMesh(rawbin_file)
   
   with open(rawbin_file,'rb') as f:
     bh = BinHeader(f)
@@ -645,15 +599,15 @@ def test():
   
   mesh.add_fields(fields)
   # get the surface mesh and velocity field on it
-  #surface_mesh = mesh.surface_mesh
-  #surface_mesh["velocity"] = mesh["velocity"][mesh.surface_idx,:]
+  surface_mesh = mesh.surface_mesh
+  surface_mesh["velocity"] = mesh["velocity"][mesh.surface_idx,:]
 
-  #plotter = pvs.Plotter()
-  #plotter.add_mesh(surface_mesh, scalars="velocity", cmap="viridis", show_scalar_bar=True)
-  #plotter.show()
-  mesh["velocity_r"] = mesh.vector_cartesian_to_spherical(mesh["velocity"])
+  plotter = pvs.Plotter()
+  plotter.add_mesh(surface_mesh, scalars="velocity", cmap="viridis", show_scalar_bar=True)
+  plotter.show()
+  #mesh["velocity_r"] = mesh.vector_cartesian_to_spherical(mesh["velocity"])
   
-  mesh.save(mesh_with_fields)
+  #mesh.save(mesh_with_fields)
   return
 
 if __name__ == "__main__":
