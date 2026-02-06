@@ -3,9 +3,9 @@ from time import perf_counter
 from functools import cached_property
 # Use relative import when imported as module, absolute when run directly
 try:
-  from .mesh import Hex2DMesh
+  from .hex_2d import Hex2DMesh
 except ImportError:
-  from mesh import Hex2DMesh
+  from stagpyviz.mesh.hex_2d import Hex2DMesh
 
 class SphericalMesh(Hex2DMesh):
   def __init__(self, dimensions=None, r=None, phi=None, *args, deep: bool = False, **kwargs):
