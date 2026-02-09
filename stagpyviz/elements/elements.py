@@ -44,6 +44,16 @@ class Element:
       # Result: (n_cells, nnodes, dim)
       dNidx = np.einsum('eji,kj->eki', invJ, GNi)
     return dNidx
+  
+  def evaluate_element_centroid(self, xe:np.ndarray) -> np.ndarray:
+    Ni = self.Ni_centroid()
+    if xe.ndim == 2:
+      centroid = np.dot(Ni, xe)
+    elif xe.ndim == 3:
+      centroid = np.einsum('k,eki->ei', Ni, xe)
+    else:
+      raise ValueError("xe must be 2D or 3D array.")
+    return centroid
 
 class Element2D(Element):
   def __init__(self):
@@ -150,7 +160,11 @@ class SurfaceElement(Element):
       # Multiple elements
       tangent1 = J[:,:,0] # shape (n_elements, 3)
       tangent2 = J[:,:,1] # shape (n_elements, 3)
-      normal = np.cross(tangent1, tangent2)
+      # cross product
+      normal = np.empty_like(tangent1)
+      normal[:,0] = tangent1[:,1]*tangent2[:,2] - tangent1[:,2]*tangent2[:,1]
+      normal[:,1] = tangent1[:,2]*tangent2[:,0] - tangent1[:,0]*tangent2[:,2]
+      normal[:,2] = tangent1[:,0]*tangent2[:,1] - tangent1[:,1]*tangent2[:,0]
     else:
       raise ValueError("J must be 2D or 3D array.")
     return normal
@@ -191,12 +205,12 @@ class SurfaceElement(Element):
   def evaluate_dNidx(self, J:np.ndarray, GNi:np.ndarray) -> np.ndarray:
     G = self.evaluate_metric_tensor(J)
     detG = self.evaluate_detG(J)
-    invG = Element3D().evaluate_invJ(G, detG)
+    invG = Element2D().evaluate_invJ(G, detG)
     # Compute global derivatives dN/dx = J * invG * GNi
     if J.ndim == 2:
       M = np.einsum('ik,kj->ij', J, invG)  # shape (3,2)
       dNidx = np.einsum('ji,ki->kj', M, GNi)  # shape (nnodes, 3)
     elif J.ndim == 3:
       M = np.einsum('eik,ekj->eij', J, invG)  # shape (n_elements, 3, 2)
-      dNidx = np.einsum('eji,eki->ekj', M, GNi)  # shape (n_elements, nnodes, 3)
+      dNidx = np.einsum('eji,ki->ekj', M, GNi)  # shape (n_elements, nnodes, 3)
     return dNidx
