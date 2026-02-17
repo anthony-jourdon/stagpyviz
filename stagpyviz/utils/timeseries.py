@@ -34,7 +34,7 @@ def timeseries_process(pvdfname:str|Path, start_line:int|None=None) -> dict:
       timeseries["time"].append(time_str)
       timeseries["fname"].append(file_str)
       timeseries["line"].append(l)
-      matchObj = re.match(r'(?:^(step\d+)/)?.*(\d{6})(.*)',file_str)
+      matchObj = re.match(r'(?:^(step\d+)/)?.*0(\d+)(.*)',file_str)
       if matchObj:
         if matchObj.group(1):
           timeseries["step_dir"].append(matchObj.group(1))
@@ -78,7 +78,7 @@ def timeseries_write_step(time:str, step:str, extension:str, prefix:str|None=Non
     if prefix is None:
       s = f'  <DataSet timestep="{time}" file="step{step}.{extension}"/>\n'
     else:
-      s = f'  <DataSet timestep="{time}" file="step{step}-{prefix}.{extension}"/>\n'
+      s = f'  <DataSet timestep="{time}" file="step{step}{prefix}.{extension}"/>\n'
     return s
 
 def timeseries_write_new(timeseries:dict, prefix:str|None=None, extension:str="vts") -> str:
