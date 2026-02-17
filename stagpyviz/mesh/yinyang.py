@@ -327,8 +327,6 @@ class YinYangMesh(pvs.UnstructuredGrid):
 
     points = np.array([X[n[2]-1,:], Y[n[2]-1,:], Z[n[2]-1,:]]).T
     self._surface_mesh = ShellMesh(points)
-    #hull = ConvexHull(points)
-    #self._surface_mesh = pvs.UnstructuredGrid({pvs.CellType.TRIANGLE: hull.simplices}, points)
     return 
 
   def construct_mesh(self):
@@ -373,6 +371,7 @@ class YinYangMesh(pvs.UnstructuredGrid):
     return
   
   def reconstruct_velocity(self, velocity_raw:np.ndarray) -> None:
+    t0 = perf_counter()
     # construct a mesh grid for one grid
     header = self.header
     n = self.grid_dimensions
@@ -414,9 +413,11 @@ class YinYangMesh(pvs.UnstructuredGrid):
     velocity_raw[0,0:n[0],0:n[1],:,1] = vx_yang
     velocity_raw[1,0:n[0],0:n[1],:,1] = vy_yang
     velocity_raw[2,0:n[0],0:n[1],:,1] = vz_yang
+    t1 = perf_counter()
+    print(f"Velocity field reconstructed in {t1-t0:g} seconds")
     return
   
-  def add_fields(self, fields:dict) -> None:
+  def add_field(self, name:str, values:np.ndarray) -> None:
     t0 = perf_counter()
     n            = self.grid_dimensions
     ppl          = self.points_per_layer
@@ -425,44 +426,48 @@ class YinYangMesh(pvs.UnstructuredGrid):
     dim = {0: 'x', 1:'y', 2:'z'}
     yin_fields  = {}
     yang_fields = {}
-    for key in fields.keys():
-      if fields[key].ndim == 5: # vector field
-        for d in dim:
-          # Yin grid
-          yin_fields[key+dim[d]] = np.reshape(fields[key][d,0:n[0],0:n[1],:,0],(npoints_grid))
-          yin_fields[key+dim[d]] = yin_fields[key+dim[d]][gidx]
-          yin_fields[key+dim[d]] = np.reshape(yin_fields[key+dim[d]],(ppl, n[2]))
-          # Yang grid
-          yang_fields[key+dim[d]] = np.reshape(fields[key][d,0:n[0],0:n[1],:,1],(npoints_grid))
-          yang_fields[key+dim[d]] = yang_fields[key+dim[d]][gidx]
-          yang_fields[key+dim[d]] = np.reshape(yang_fields[key+dim[d]],(ppl, n[2]))
-      else: # scalar field
+    if values.ndim == 5: # vector field
+      for d in dim:
         # Yin grid
-        yin_fields[key] = np.reshape(fields[key][0:n[0],0:n[1],:,0],(npoints_grid))
-        yin_fields[key] = yin_fields[key][gidx]
-        yin_fields[key] = np.reshape(yin_fields[key],(ppl, n[2]))
+        yin_fields[name+dim[d]] = np.reshape(values[d,0:n[0],0:n[1],:,0],(npoints_grid))
+        yin_fields[name+dim[d]] = yin_fields[name+dim[d]][gidx]
+        yin_fields[name+dim[d]] = np.reshape(yin_fields[name+dim[d]],(ppl, n[2]))
         # Yang grid
-        yang_fields[key] = np.reshape(fields[key][0:n[0],0:n[1],:,1],(npoints_grid))
-        yang_fields[key] = yang_fields[key][gidx]
-        yang_fields[key] = np.reshape(yang_fields[key],(ppl, n[2]))
+        yang_fields[name+dim[d]] = np.reshape(values[d,0:n[0],0:n[1],:,1],(npoints_grid))
+        yang_fields[name+dim[d]] = yang_fields[name+dim[d]][gidx]
+        yang_fields[name+dim[d]] = np.reshape(yang_fields[name+dim[d]],(ppl, n[2]))
+    else: # scalar field
+      # Yin grid
+      yin_fields[name] = np.reshape(values[0:n[0],0:n[1],:,0],(npoints_grid))
+      yin_fields[name] = yin_fields[name][gidx]
+      yin_fields[name] = np.reshape(yin_fields[name],(ppl, n[2]))
+      # Yang grid
+      yang_fields[name] = np.reshape(values[0:n[0],0:n[1],:,1],(npoints_grid))
+      yang_fields[name] = yang_fields[name][gidx]
+      yang_fields[name] = np.reshape(yang_fields[name],(ppl, n[2]))
 
     # Gather fields into the mesh
-    for key in fields.keys():
-      if fields[key].ndim == 5: # vector field
-        self[key] = np.zeros( (2*ppl*n[2], 3) )
-        for d in dim:
-          # Yin grid
-          self[key][0:ppl*n[2],d] = np.reshape(yin_fields[key+dim[d]],(ppl*n[2]),order='F')
-          # Yang grid
-          self[key][ppl*n[2]:2*ppl*n[2],d] = np.reshape(yang_fields[key+dim[d]],(ppl*n[2]),order='F')
-      else: # scalar field
-        self[key] = np.zeros( (2*ppl*n[2]) )
+    if values.ndim == 5: # vector field
+      self[name] = np.zeros( (2*ppl*n[2], 3) )
+      for d in dim:
         # Yin grid
-        self[key][0:ppl*n[2]] = np.reshape(yin_fields[key],(ppl*n[2]),order='F')
+        self[name][0:ppl*n[2],d] = np.reshape(yin_fields[name+dim[d]],(ppl*n[2]),order='F')
         # Yang grid
-        self[key][ppl*n[2]:2*ppl*n[2]] = np.reshape(yang_fields[key],(ppl*n[2]),order='F')
+        self[name][ppl*n[2]:2*ppl*n[2],d] = np.reshape(yang_fields[name+dim[d]],(ppl*n[2]),order='F')
+    else: # scalar field
+      self[name] = np.zeros( (2*ppl*n[2]) )
+      # Yin grid
+      self[name][0:ppl*n[2]] = np.reshape(yin_fields[name],(ppl*n[2]),order='F')
+      # Yang grid
+      self[name][ppl*n[2]:2*ppl*n[2]] = np.reshape(yang_fields[name],(ppl*n[2]),order='F')
+
     t1 = perf_counter()
-    print(f"Added {len(list(fields.keys()))} fields to the mesh in {t1-t0:g} seconds")
+    print(f"Added field {name} to the mesh in {t1-t0:g} seconds")
+    return
+  
+  def add_fields(self, fields:dict) -> None:
+    for key in fields.keys():
+      self.add_field(key, fields[key])
     return
   
   def rotation_matrix(self,theta:np.ndarray,phi:np.ndarray) -> np.ndarray:
