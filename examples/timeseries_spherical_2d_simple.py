@@ -58,70 +58,55 @@ def get_velocity_pressure(mesh:spv.SphericalMesh, fields:np.ndarray):
   mesh["velocity_x"] = v_cartesian
   return
 
-def write_timeseries_pvd(fname:str,time_series:list,prefix:str,extension:str="vts"):
-  with open(fname,'w') as f:
-    f.write('<?xml version="1.0"?>\n')
-    f.write('<VTKFile type="Collection" version="0.1" byte_order="LittleEndian">\n')
-    f.write('  <Collection>\n')
-    for time_entry in time_series:
-      f.write('    <DataSet timestep="'+time_entry[0]+'" file="step'+time_entry[1]+'_'+prefix+'.'+extension+'"/>\n')
-    f.write('  </Collection>\n')
-    f.write('</VTKFile>\n')
+def write_pvd_only(frames, model_name, mdir, odir, time_series, fnames, flist):
+  for step in frames:
+    fname = get_filename(model_name, fnames[flist[0]], step)
+    fname = os.path.join(mdir, fname)
+    header, _ = spv.read_stag_bin(fname)
+    time = header["time"]
+    time_series.append( (str(time), str(step).zfill(5)) )
+
+  # write the pvd file
+  pvd_fname = os.path.join(odir, "timeseries_cellfields.pvd")
+  if os.path.exists(pvd_fname):
+    spv.append_timeseries_pvd(pvd_fname, time_series, "cellfields", "vts")
+  else:
+    spv.write_timeseries_pvd(pvd_fname, time_series, "cellfields", "vts")
   return
 
-def append_timeseries_pvd(fname:str,time_series:list,prefix:str,extension:str="vts"):
-  with open(fname,'r+') as f:
-    content = f.readlines()
-    f.seek(0)
-    # write up to Collection
-    for line in content:
-      if '  </Collection>' in line:
-        break
-      f.write(line)
-      
-    # append new entries
-    for time_entry in time_series:
-      f.write('    <DataSet timestep="'+time_entry[0]+'" file="step'+time_entry[1]+'_'+prefix+'.'+extension+'"/>\n')
-    # write closing tags
-    f.write('  </Collection>\n')
-    f.write('</VTKFile>\n')
-
 def test():
-  model_name = "Ra7_50m15wb_ccm_noH"
+  model_name = "Ra7_50m15wbcc_noH"
+  model_dir  = "Ra7_50m15wbcc_noH"
   #model_name = "Ra7_pl_cont_LR_suite"
-  mdir = os.path.join(os.environ["SCRATCH"], model_name)
+  mdir = os.path.join(os.environ["SCRATCH"], model_dir)
   print(f"Model directory: {mdir}")
-  odir = os.path.join(os.environ["SCRATCH"], model_name, "vts_output")
+  odir = os.path.join(os.environ["SCRATCH"], model_dir, "vts_output")
   if not os.path.exists(odir):
     os.makedirs(odir)
     print(f"Created output directory: {odir}")
 
   fnames = fields_name()
   flist  = ["temperature", "composition", "viscosity", "density", "stress", "e2", "velocity"]
-  frames = np.arange(0,301) #443
+  frames = np.arange(0,71) #443
 
   # first step we create the mesh, then we just update the fields
   istep = 0
   time_series = []
+  #write_pvd_only(frames, model_name, mdir, odir, time_series, fnames, flist)
+  
   for step in frames:
     print(f"Processing step: {step}")
     if istep == 0:
       fname = get_filename(model_name, fnames[flist[0]], step)
       fname = os.path.join(mdir, fname)
-      with open(fname,'rb') as f:
-        bh64 = spv.BinHeader64(f)
-        bh64.read_header()
-      header = bh64.header
+      header, _ = spv.read_stag_bin(fname)
       mesh = create_mesh(header)
     mesh.mesh_cell2point = None  # reset any previous cell to point mapping
     for field in flist:
       fname = get_filename(model_name, fnames[field], step)
       fname = os.path.join(mdir, fname)
-      with open(fname,'rb') as f:
-        bh64 = spv.BinHeader64(f)
-        bh64.read_header()
-        time = bh64.header["time"]
-        field_data = bh64.read_fields()
+      header, field_data = spv.read_stag_bin(fname)
+      time = header["time"]
       if field == "velocity":
         get_velocity_pressure(mesh, field_data)
       else:
@@ -141,10 +126,10 @@ def test():
   # write the pvd file
   pvd_fname = os.path.join(odir, "timeseries_cellfields.pvd")
   if os.path.exists(pvd_fname):
-    append_timeseries_pvd(pvd_fname, time_series, "cellfields", "vts")
+    spv.append_timeseries_pvd(pvd_fname, time_series, "cellfields", "vts")
   else:
-    write_timeseries_pvd(pvd_fname, time_series, "cellfields", "vts")
-
+    spv.write_timeseries_pvd(pvd_fname, time_series, "cellfields", "vts")
+  
   return
 
 if __name__ == "__main__":
