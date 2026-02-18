@@ -1,21 +1,19 @@
 from pathlib import Path
-from functools import cached_property
 from time import perf_counter
 import pyvista as pvs
 import numpy as np
 from scipy.spatial import ConvexHull
 
-from stagpyviz import mesh
-
 try:
   from ..elements.p1_2d import P1_2D_R3
+  from .spherical_3d import UnstructuredSphere
 except ImportError:
   from stagpyviz.elements.p1_2d import P1_2D_R3
+  from stagpyviz.mesh.spherical_3d import UnstructuredSphere
 
-class ShellMesh(pvs.UnstructuredGrid):
+class ShellMesh(UnstructuredSphere):
   def __init__(self, *args, deep:bool=False, **kwargs):
     self.elements:P1_2D_R3 = P1_2D_R3()
-    self._centroids = None
 
     # Check if user provided a VTU file to load the mesh from
     if len(args) == 1 and isinstance(args[0], (Path, str)):
@@ -72,7 +70,7 @@ class ShellMesh(pvs.UnstructuredGrid):
       R = np.sqrt(x[:,0]**2 + x[:,1]**2 + x[:,2]**2)
       self.cell_data["normals"] = np.divide(x.T, R).T
     return
-  
+
   @property
   def points_normal(self) -> np.ndarray:
     if "normals" not in self.point_data:
