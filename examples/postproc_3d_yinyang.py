@@ -303,7 +303,8 @@ def add_fields_to_mesh(mesh:spv.YinYangMesh, fields_to_add:list[str], class_fiel
   
   # Rgions need a special treatment because depending on the version they may have been output as separated fields 
   if "regions" in fields_to_add:
-    mesh["regions"] = np.zeros(mesh.number_of_points, dtype=np.int32)
+    #mesh["regions"] = np.zeros(mesh.number_of_points, dtype=np.int32)
+    mesh["regions"] = mesh.create_point_field(bs=1, dtype=np.int32)
     if len(regions) > 1: # only merge if there are more than 1 region
       # merge the region fields into a single field
       for region in regions:
@@ -348,7 +349,7 @@ def write_step(mesh:spv.YinYangMesh, io_utils:IOutils, class_fields:dict[str,Fie
       if field in mesh.point_data:
         surface_mesh.point_data[field] = mesh.point_data[field][mesh.surface_idx]
       if field in mesh.cell_data:
-        surface_mesh.cell_data[field] = mesh.cell_data[field][mesh.surface_idx]
+        surface_mesh.cell_data[field] = mesh.cell_data[field][mesh.surface_cells]
     write_mesh(surface_mesh, io_utils, outfname)
   else:
     write_mesh(mesh, io_utils, outfname)

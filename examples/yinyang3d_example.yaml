@@ -1,6 +1,6 @@
 paths:
   model: "llsvp"
-  directory: "Run-llsvp"
+  directory: "LLSVP-Run6"
   base: 
     model: "/data/ens/ncoltice/CLAUDIO" # Absolute path to directory containing the model directory
     output: "/data/jourdon/llsvp-pandora-vtu/surface-yy" # Absolute path to directory where output directory will be created, we append the model directory name
@@ -13,20 +13,20 @@ fields:
   # with the name regions and values corresponding to each region based on the regions list provided below.
   # If there is only a single output field for regions, it will be renamed to "regions" and keep its original values.
   process: # fields that will be processed and added to the mesh
-    - "velocity"
-    - "velocity_r"
-    - "e2"
+    #- "velocity"
+    #- "velocity_r"
+    #- "e2"
     - "temperature"
-    - "divergence"
-    - "composition"
-    - "primordial"
-    - "proterozoic"
-    #- grad_T
-    #- grad_T_r
-    #- stress
-    #- pressure
-    #- nrc #??? don't know what is this field
-    #- vorticity
+    #- "divergence"
+    #- "composition"
+    #- "primordial"
+    #- "proterozoic"
+    - "grad_T"
+    - "grad_T_r"
+    #- "stress"
+    #- "pressure"
+    #- "nrc" #??? don't know what is this field
+    #- "vorticity"
   
   regions:
     - "primordial"
@@ -39,14 +39,14 @@ fields:
 steps:
   # by default we restart from the last step found in the pvd file if it exists, otherwise from the start step.
   # Setting reset to true will ignore any existing pvd file and start from the start step, erasing any existing pvd file in the output directory.
-  reset: false
+  reset: true
 
   # if step is given it will be used as the only step to process
-  #step: 10
+  step: 10
 
   # starting step: note that if a pvd file already exists in the output directory, 
   # the starting step will be updated to the last step found in the pvd file + 1.
-  start: 0
+  #start: 0
 
   # end step: if given we process steps from start to end, if not given we process all steps starting from start
   #end: 3
