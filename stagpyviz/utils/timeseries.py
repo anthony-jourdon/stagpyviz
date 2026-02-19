@@ -74,28 +74,31 @@ def timeseries_compare(pvdfname1:str|Path, pvdfname2:str|Path) -> tuple[dict, di
       print("Timeseries have the same number of lines.")
       return timeseries1, None, None
 
-def timeseries_write_step(time:str, step:str, extension:str, prefix:str|None=None) -> str:
+def timeseries_write_step(time:str, step:str, extension:str, prefix:str|None=None, stepdir:str="") -> str:
     if prefix is None:
-      s = f'  <DataSet timestep="{time}" file="step{step}.{extension}"/>\n'
+      s = f'  <DataSet timestep="{time}" file="{stepdir}step{step}.{extension}"/>\n'
     else:
-      s = f'  <DataSet timestep="{time}" file="step{step}{prefix}.{extension}"/>\n'
+      s = f'  <DataSet timestep="{time}" file="{stepdir}step{step}{prefix}.{extension}"/>\n'
     return s
 
 def timeseries_write_new(timeseries:dict, prefix:str|None=None, extension:str="vts") -> str:
     nsteps = len(timeseries["time"])
+    steps_dir = timeseries.get("step_dir", [""]*nsteps)
     s = "<?xml version=\"1.0\"?>\n"
     s += "<VTKFile type=\"Collection\" version=\"0.1\" byte_order=\"LittleEndian\">\n"
     s += "<Collection>\n"
     for step in range(nsteps):
       time = timeseries["time"][step]
       step_num = timeseries["step"][step]
-      s += timeseries_write_step(time, step_num, extension, prefix)
+      step_dir = steps_dir[step]
+      s += timeseries_write_step(time, step_num, extension, prefix, step_dir)
     s += "</Collection>\n"
     s += "</VTKFile>"
     return s
   
 def timeseries_append(content:str, timeseries:dict, prefix:str|None=None, extension:str="vts") -> str:
     nsteps = len(timeseries["time"])
+    steps_dir = timeseries.get("step_dir", [""]*nsteps)
     s = ""
     for line in content:
       if '</Collection>' in line:
@@ -104,7 +107,8 @@ def timeseries_append(content:str, timeseries:dict, prefix:str|None=None, extens
     for step in range(nsteps):
       time = timeseries["time"][step]
       step_num = timeseries["step"][step]
-      s += timeseries_write_step(time, step_num, extension, prefix)
+      step_dir = steps_dir[step]
+      s += timeseries_write_step(time, step_num, extension, prefix, step_dir)
     s += '  </Collection>\n'
     s += '</VTKFile>'
     return s
