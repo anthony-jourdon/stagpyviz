@@ -3,6 +3,37 @@ import numpy as np
 from time import perf_counter
 
 class UnstructuredSphere(pvs.UnstructuredGrid):
+  """
+  Unstructured grid class for spherical meshes. 
+  Provides methods for Cartesian - Spherical coordinates transformations, as well as vector and gradient transformations.
+  Inherits from `pyvista.UnstructuredGrid`_, so all methods and properties of the parent class are available.
+
+  :Attributes:
+
+  .. py:attribute:: points_spherical
+
+    The points of the mesh in spherical coordinates. 
+    Shape is ``(number_of_points, 3)`` with columns corresponding to ``(radius, colatitude, longitude)``.
+    
+    :type: numpy.ndarray
+
+  .. py:attribute:: centroids
+
+    The centroids of the cells in Cartesian coordinates.
+    Shape is ``(number_of_cells, 3)`` with columns corresponding to ``(x, y, z)``.
+    
+    :type: numpy.ndarray
+
+  .. py:attribute:: centroids_spherical
+
+    The centroids of the cells in spherical coordinates.
+    Shape is ``(number_of_cells, 3)`` with columns corresponding to ``(radius, colatitude, longitude)``.
+    
+    :type: numpy.ndarray
+
+  :Methods:
+
+  """
   def __init__(self, *args, deep:bool=False, **kwargs) -> None:
     super().__init__(*args, deep=deep, **kwargs)
     self._points_spherical    = None
@@ -11,22 +42,56 @@ class UnstructuredSphere(pvs.UnstructuredGrid):
     return
   
   def is_point_field(self, field:np.ndarray) -> bool:
+    """
+    Check if the input field is a point field.
+
+    :param numpy.ndarray field: The field to check.
+    :return: True if the field is a point field, False otherwise.
+    :rtype: bool
+    """
     if field.shape[0] == self.number_of_points:
       return True
     return False
   
   def is_cell_field(self, field:np.ndarray) -> bool:
+    """
+    Check if the input field is a cell field.
+
+    :param numpy.ndarray field: The field to check.
+    :return: True if the field is a cell field, False otherwise.
+    :rtype: bool
+    """
     if field.shape[0] == self.number_of_cells:
       return True
     return False
   
   def create_point_field(self, bs:int=1, dtype:np.dtype=np.float64) -> np.ndarray:
+    """
+    Create a point field initialized with zeros.
+    
+    :param int bs: The number of components of the field. Default is 1 (scalar field).
+    :param numpy.dtype dtype: The data type of the field. Default is ``np.float64``.
+    :return: 
+      A point field initialized with zeros.
+      Scalar fields have shape ``(number_of_points,)``, vector fields have shape ``(number_of_points, bs)``.
+    :rtype: numpy.ndarray
+    """
     if bs == 1:
       return np.zeros( (self.number_of_points), dtype=dtype )
     else:
       return np.zeros( (self.number_of_points, bs), dtype=dtype )
     
   def create_cell_field(self, bs:int=1, dtype:np.dtype=np.float64) -> np.ndarray:
+    """
+    Create a cell field initialized with zeros.
+
+    :param int bs: The number of components of the field. Default is 1 (scalar field).
+    :param numpy.dtype dtype: The data type of the field. Default is ``np.float64``.
+    :return: 
+      A cell field initialized with zeros.
+      Scalar fields have shape ``(number_of_cells,)``, vector fields have shape ``(number_of_cells, bs)``.
+    :rtype: numpy.ndarray
+    """
     if bs == 1:
       return np.zeros( (self.number_of_cells), dtype=dtype )
     else:
@@ -42,6 +107,26 @@ class UnstructuredSphere(pvs.UnstructuredGrid):
       np.ndarray|float,
       np.ndarray|float
     ]:
+    """
+    Transform Cartesian coordinates to Spherical coordinates such that:
+
+    .. math::
+      \\begin{split}
+        r &= \\sqrt{x^2 + y^2 + z^2} \\\\
+        \\theta &= \\arctan\\left(\\frac{\\sqrt{x^2 + y^2}}{z}\\right) \\\\
+        \\phi &= \\arctan\\left(\\frac{y}{x}\\right)
+      \\end{split}
+
+    :param numpy.ndarray|float x: The x coordinate(s).
+    :param numpy.ndarray|float y: The y coordinate(s).
+    :param numpy.ndarray|float z: The z coordinate(s).
+    :return: 
+      A tuple containing the spherical coordinates ``(R, theta, phi)``.
+      ``R`` is the radial distance, 
+      ``theta`` is the colatitude (angle from the :math:`z`-axis), 
+      and ``phi`` is the longitude (angle from the :math:`x`-axis in the :math:`xy`-plane).
+    :rtype: tuple[numpy.ndarray|float, numpy.ndarray|float, numpy.ndarray|float]
+    """
     R     = np.sqrt(x**2+y**2+z**2)
     colat = np.arctan2(np.sqrt(x**2+y**2),z)
     lon   = np.arctan2(y,x)
@@ -57,6 +142,23 @@ class UnstructuredSphere(pvs.UnstructuredGrid):
       np.ndarray|float,
       np.ndarray|float
     ]:
+    """
+    Transform Spherical coordinates to Cartesian coordinates such that:
+
+    .. math::
+      \\begin{split}
+        x &= r \\sin(\\theta) \\cos(\\phi) \\\\
+        y &= r \\sin(\\theta) \\sin(\\phi) \\\\
+        z &= r \\cos(\\theta)
+      \\end{split}
+
+    :param numpy.ndarray|float R: The radial distance(s).
+    :param numpy.ndarray|float lat: The colatitude(s) (angle(s) from the :math:`z`-axis).
+    :param numpy.ndarray|float lon: The longitude(s) (angle(s) from the :math:`x`-axis in the :math:`xy`-plane).
+    :return: 
+      A tuple containing the Cartesian coordinates ``(x, y, z)``.
+    :rtype: tuple[numpy.ndarray|float, numpy.ndarray|float, numpy.ndarray|float]
+    """
     x = R*np.cos(lat)*np.cos(lon)
     y = R*np.cos(lat)*np.sin(lon)
     z = R*np.sin(lat)
@@ -92,6 +194,25 @@ class UnstructuredSphere(pvs.UnstructuredGrid):
     return self._centroids_spherical
   
   def rotation_matrix(self,theta:np.ndarray,phi:np.ndarray) -> np.ndarray:
+    """
+    Computes the rotation matrix for Cartesian - Spherical vector transformations at given 
+    colatitude (:math:`\\theta`) and longitude (:math:`\\phi`) angles such that:
+
+    .. math::
+      \\boldsymbol{R} = \\begin{bmatrix}
+        \\sin(\\theta) \\cos(\\phi) & \\sin(\\theta) \\sin(\\phi) & \\cos(\\theta) \\\\
+        \\cos(\\theta) \\cos(\\phi) & \\cos(\\theta) \\sin(\\phi) & -\\sin(\\theta) \\\\
+        -\\sin(\\phi) & \\cos(\\phi) & 0
+      \\end{bmatrix}
+
+    :param numpy.ndarray theta: The colatitude angles (angle from the :math:`z`-axis).
+    :param numpy.ndarray phi: The longitude angles (angle from the :math:`x`-axis in the :math:`xy`-plane).
+    :return: 
+      The rotation matrix for Cartesian - Spherical vector transformations at the given angles. 
+      Shape is ``(N, 3, 3)`` where N is the length of the input angle arrays.
+    :rtype: numpy.ndarray
+
+    """
     R = np.zeros((theta.shape[0],3,3), dtype=np.float64)
     R[:,0,0] =  np.sin(theta)*np.cos(phi)
     R[:,0,1] =  np.sin(theta)*np.sin(phi)
@@ -107,12 +228,37 @@ class UnstructuredSphere(pvs.UnstructuredGrid):
     return R
 
   def rotation_matrix_vertices(self) -> np.ndarray:
+    """
+    Computes the rotation matrix for Cartesian - Spherical vector transformations at the vertices of the mesh.
+    Calls :py:meth:`rotation_matrix <stagpyviz.UnstructuredSphere.rotation_matrix>` using the attribute :py:attr:`points_spherical`.
+    """
     return self.rotation_matrix(self.points_spherical[:,1],self.points_spherical[:,2])
   
   def rotation_matrix_centroids(self) -> np.ndarray:
+    """
+    Computes the rotation matrix for Cartesian - Spherical vector transformations at the centroids of the cells of the mesh.
+    Calls :py:meth:`rotation_matrix <stagpyviz.UnstructuredSphere.rotation_matrix>` using the attribute :py:attr:`centroids_spherical`.
+    """
     return self.rotation_matrix(self.centroids_spherical[:,1],self.centroids_spherical[:,2])
   
   def vector_cartesian_to_spherical(self, v_cartesian:np.ndarray) -> np.ndarray:
+    """
+    Transform a vector field from Cartesian to Spherical coordinates such that:
+
+    .. math::
+      \\mathbf{v}_{r} = \\boldsymbol{R} \\mathbf{v}_{x}
+    
+    where :math:`\\mathbf{v}_{r}` is the vector field in spherical coordinates,
+    :math:`\\mathbf{v}_{x}` is the vector field in Cartesian coordinates,
+    and :math:`\\boldsymbol{R}` is the rotation matrix of the transformomation between Cartesian and Spherical coordinates 
+    (see :py:meth:`rotation_matrix <stagpyviz.UnstructuredSphere.rotation_matrix>`).
+
+    :param numpy.ndarray v_cartesian: 
+      The vector field in Cartesian coordinates. 
+      Shape should be ``(N, 3)`` where N can be either the number of points or the number of cells of the mesh.
+    :return: The vector field in Spherical coordinates. Shape is the same as the input field.
+    :rtype: numpy.ndarray
+    """
     t0 = perf_counter()
     if self.is_point_field(v_cartesian):
       R = self.rotation_matrix_vertices()
@@ -126,6 +272,24 @@ class UnstructuredSphere(pvs.UnstructuredGrid):
     return v_spherical
   
   def vector_spherical_to_cartesian(self, v_spherical:np.ndarray) -> np.ndarray:
+    """
+    Transform a vector field from Spherical to Cartesian coordinates such that:
+
+    .. math::
+      \\mathbf{v}_{x} = \\boldsymbol{R}^T \\mathbf{v}_{r}
+
+    where :math:`\\mathbf{v}_{x}` is the vector field in Cartesian coordinates,
+    :math:`\\mathbf{v}_{r}` is the vector field in spherical coordinates,
+    and :math:`\\boldsymbol{R}^T` is the transpose of the rotation matrix of the transformomation between 
+    Cartesian and Spherical coordinates (see :py:meth:`rotation_matrix <stagpyviz.UnstructuredSphere.rotation_matrix>`).
+
+    :param numpy.ndarray v_spherical: 
+      The vector field in Spherical coordinates. 
+      Shape should be ``(N, 3)`` where N can be either the number of points or the number of cells of the mesh.
+    :return: The vector field in Cartesian coordinates. Shape is the same as the input field.
+    :rtype: numpy.ndarray
+
+    """
     t0 = perf_counter()
     if self.is_point_field(v_spherical):
       R = self.rotation_matrix_vertices()
@@ -141,7 +305,23 @@ class UnstructuredSphere(pvs.UnstructuredGrid):
   
   def Jacobian_matrix(self, r:np.ndarray, theta:np.ndarray, phi:np.ndarray) -> np.ndarray:
     """
-    Compute the Jacobian matrix for Cartesian - Spherical gradients transformations.
+    Evaluate the Jacobian matrix for Cartesian - Spherical gradients transformations at given 
+    radial (:math:`r`), colatitude (:math:`\\theta`) and longitude (:math:`\\phi`) coordinates such that:
+
+    .. math::
+      \\boldsymbol{J} = \\begin{bmatrix}
+        \\sin(\\theta) \\cos(\\phi) & r \\cos(\\theta) \\cos(\\phi) & -r \\sin(\\theta) \\sin(\\phi) \\\\
+        \\sin(\\theta) \\sin(\\phi) & r \\cos(\\theta) \\sin(\\phi) & r \\sin(\\theta) \\cos(\\phi) \\\\
+        \\cos(\\theta) & -r \\sin(\\theta) & 0
+      \\end{bmatrix}
+
+    :param numpy.ndarray r: The radial coordinates.
+    :param numpy.ndarray theta: The colatitude coordinates (angle from the :math:`z`-axis).
+    :param numpy.ndarray phi: The longitude coordinates (angle from the :math:`x`-axis in the :math:`xy`-plane).
+    :return: 
+      The Jacobian matrix for Cartesian - Spherical gradients transformations at the given coordinates. 
+      Shape is ``(N, 3, 3)`` where N is the length of the input coordinate arrays.
+    :rtype: numpy.ndarray
     """
     J = np.zeros( (r.shape[0], 3,3), dtype=np.float64 )
     J[:,0,0] = np.sin(theta)*np.cos(phi)
@@ -158,6 +338,25 @@ class UnstructuredSphere(pvs.UnstructuredGrid):
     return J
 
   def spherical_gradient(self,cartesian_gradient:np.ndarray) -> np.ndarray:
+    """
+    Transform a gradient field from Cartesian to Spherical coordinates such that:
+
+    .. math::
+      (\\nabla \\varphi)_{r} = \\boldsymbol{J} (\\nabla \\varphi)_{x}
+
+    where :math:`(\\nabla \\varphi)_{r}` is the gradient field in spherical coordinates,
+    :math:`(\\nabla \\varphi)_{x}` is the gradient field in Cartesian coordinates,
+    and :math:`\\boldsymbol{J}` is the Jacobian matrix of the transformomation between 
+    Cartesian and Spherical coordinates for gradients (see :py:meth:`Jacobian_matrix <stagpyviz.UnstructuredSphere.Jacobian_matrix>`).
+
+    .. note::
+      The transformation for gradients is different from the transformation for vectors, 
+      as it involves the Jacobian matrix instead of the rotation matrix.
+
+    :param numpy.ndarray cartesian_gradient: The gradient field in Cartesian coordinates.
+    :return: The gradient field in Spherical coordinates.
+    :rtype: numpy.ndarray
+    """
     t0 = perf_counter()
     if self.is_point_field(cartesian_gradient):
       coords = self.points_spherical

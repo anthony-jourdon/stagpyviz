@@ -8,16 +8,10 @@ except ImportError:
 
 class P1_2D(Element2D):
   """
-  Triangular linear (P1) parametric element in 2D.
-  Nodes are ordered as:
-  
-    2
-    | \
-    |  \
-    0---1
-
-  and the reference coordinates (xi, eta) range from 0 to 1 with the constraint
-  xi + eta <= 1.
+  Triangular linear :math:`\\mathcal{P}_1` parametric element in 2D, :math:`\\mathbb R^2`.
+  Nodes are ordered couterclockwise
+  and the reference coordinates :math:`\\xi, \\eta` range from 0 to 1 with the constraint :math:`\\xi + \\eta \\leq 1`.
+  Inherits from :py:class:`Element2D <stagpyviz.Element2D>`.
   """
   def __init__(self):
     super().__init__()
@@ -25,6 +19,21 @@ class P1_2D(Element2D):
     return
   
   def evaluate_Ni(self, xi:np.ndarray):
+    """
+    Evaluate the shape functions at given reference coordinates :math:`\\xi = (\\xi, \\eta)`.
+    Shape functions for a linear triangle are:
+
+    .. math::
+      \\begin{split}
+        N_0(\\xi, \\eta) &= 1 - \\xi - \\eta \\\\
+        N_1(\\xi, \\eta) &= \\xi \\\\
+        N_2(\\xi, \\eta) &= \\eta
+      \\end{split}
+
+    :param numpy.ndarray xi: Array of shape ``(2,)`` containing the reference coordinates.
+    :return: Array of shape ``(3,)`` containing the shape function values at the given reference coordinates.
+    :rtype: numpy.ndarray
+    """
     Ni = np.zeros((self.basis_per_el),dtype=np.float64)
     Ni[0] = 1.0 - xi[0] - xi[1]
     Ni[1] = xi[0]
@@ -32,10 +41,32 @@ class P1_2D(Element2D):
     return Ni
   
   def Ni_centroid(self):
+    """
+    Compute the shape function values at the element centroid.
+    For the chosen linear triangle, the shape functions at the centroid are all equal to 1/3.
+
+    :return: Array of shape ``(3,)`` containing the shape function values at the element centroid.
+    :rtype: numpy.ndarray
+    """
     Ni = np.ones((self.basis_per_el), dtype=np.float64) / 3.0
     return Ni
   
   def evaluate_GNi(self):
+    """
+    Compute the derivatives of the shape functions with respect to the reference coordinates.
+    For a linear triangle, the derivatives are constant and given by:
+
+      .. math::
+        \\frac{\\partial N_k}{\\partial \\xi_i} = 
+        \\begin{bmatrix}
+          -1 & -1 \\\\
+          1 &  0 \\\\
+          0 &  1
+        \\end{bmatrix}
+
+    :return: Array of shape ``(3, 2)`` containing the derivatives of the shape functions with respect to the reference coordinates.
+    :rtype: numpy.ndarray
+    """
     GNi = np.zeros((self.basis_per_el,2),dtype=np.float64)
     GNi[0,0] = -1.0 # dN0/dxi
     GNi[0,1] = -1.0 # dN0/deta
@@ -47,13 +78,12 @@ class P1_2D(Element2D):
   
   def GNi_centroid(self):
     """
-    Returns the shape function derivatives at the element centroid (xi=1/3, eta=1/3).
-    GNi[i, d] = dN_i/dxi_d  where i=node, d=direction (0=xi, 1=eta)
+    Computes the shape function derivatives at the element centroid.
+    The derivatives of the shape functions with respect to the reference coordinates are constant for a linear triangle, 
+    so this method simply returns the same values as :py:meth:`evaluate_GNi <stagpyviz.P1_2D.evaluate_GNi>`.
 
-    Returns
-    -------
-    np.ndarray
-        Array of shape (3, 2) with shape function derivatives at centroid.
+    :return: Array of shape ``(3, 2)`` containing the derivatives of the shape functions with respect to the reference coordinates at the element centroid.
+    :rtype: numpy.ndarray
     """
     GNi = np.array([
       [-1.0, -1.0],
@@ -64,16 +94,10 @@ class P1_2D(Element2D):
   
 class P1_2D_R3(SurfaceElement):
   """
-  Triangular linear (P1) parametric element in 3D, representing a surface element.
-  Nodes are ordered as:
-  
-    2
-    | \
-    |  \
-    0---1
-
-  and the reference coordinates (xi, eta) range from 0 to 1 with the constraint
-  xi + eta <= 1.
+  Triangular linear :math:`\\mathcal{P}_1` parametric element in 3D, representing a surface element in :math:`\\mathbb R^3`.
+  Nodes are ordered couterclockwise
+  and the reference coordinates :math:`\\xi, \\eta` range from 0 to 1 with the constraint :math:`\\xi + \\eta \\leq 1`.
+  Inherits from :py:class:`SurfaceElement <stagpyviz.SurfaceElement>`.
   """
   def __init__(self):
     super().__init__()
@@ -81,6 +105,10 @@ class P1_2D_R3(SurfaceElement):
     return
   
   def evaluate_Ni(self, xi:np.ndarray):
+    """
+    Evaluate the shape functions at given reference coordinates :math:`\\xi = (\\xi, \\eta)`.
+    See :py:meth:`evaluate_Ni <stagpyviz.P1_2D.evaluate_Ni>` for the shape function definitions.
+    """
     Ni = np.zeros((self.basis_per_el),dtype=np.float64)
     Ni[0] = 1.0 - xi[0] - xi[1]
     Ni[1] = xi[0]
@@ -88,10 +116,19 @@ class P1_2D_R3(SurfaceElement):
     return Ni
   
   def Ni_centroid(self):
+    """
+    Compute the shape function values at the element centroid.
+    See :py:meth:`Ni_centroid <stagpyviz.P1_2D.Ni_centroid>` for the shape function values at the centroid.
+    """
     Ni = np.ones((self.basis_per_el), dtype=np.float64) / 3.0
     return Ni
   
   def evaluate_GNi(self):
+    """
+    Compute the derivatives of the shape functions with respect to the reference coordinates.
+    See :py:meth:`evaluate_GNi <stagpyviz.P1_2D.evaluate_GNi>` 
+    for the shape function derivatives with respect to the reference coordinates.
+    """
     GNi = np.zeros((self.basis_per_el,2),dtype=np.float64)
     GNi[0,0] = -1.0 # dN0/dxi
     GNi[0,1] = -1.0 # dN0/deta
@@ -102,4 +139,8 @@ class P1_2D_R3(SurfaceElement):
     return GNi
   
   def GNi_centroid(self):
+    """
+    Compute the shape function derivatives at the element centroid.
+    See :py:meth:`GNi_centroid <stagpyviz.P1_2D.GNi_centroid>` for the shape function derivatives at the centroid.
+    """
     return self.evaluate_GNi()
