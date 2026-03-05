@@ -18,12 +18,121 @@ except ImportError:
 
 class YinYangMesh(UnstructuredSphere):
   """
-  YinYangMesh(pyvista.UnstructuredGrid)
+  A class to represent an unstructured mesh of a sphere reconstructed from a StagYY Yin-Yang grid.
+  The mesh is discretized as a collection of wedge (prismatic) elements :math:`\\mathcal W_1`.
 
-  Possibilities:
-  
-  1- Create the mesh from the raw binary file (StagYY output)
-  2- Create the mesh from a VTU file (already generated and stored on disk)
+  To reconstruct the mesh from a raw binary file containing the Yin-Yang grid we process as follows:
+
+  1.
+    Extract the yin and yang grids
+
+  2.
+    Determine the indices of the points that are not in the overlapping region between the two grids
+
+  3.
+    Exploiting the fact that the grid is structured in the radial direction even after removing the overlapping points 
+    and that the number of points per radial layer is always the same, 
+    we reshape the coordinates of the points in the Yin and Yang grids into 2D arrays of shape ``(points_per_layer, n_radial_layers)``
+
+  4.
+    Generate a surface mesh of the outer shell of the sphere using the points of the last radial layer of both grids using the 
+    class :py:class:`ShellMesh <stagpyviz.ShellMesh>`
+
+  5.
+    Generate the volume mesh by extruding the surface mesh radially and connecting the nodes of the surface mesh 
+    to the nodes of the inner layers by constructing wedge elements.
+
+  The mesh can be generated directly from the raw binary file or from a VTU file containing the mesh and the fields.
+
+  :param pathlib.Path|str rawbin: The path to the raw binary file containing the Yin-Yang grid (output of StagYY)
+
+  :Attributes:
+
+  .. py:attribute:: yin
+
+    Dictionary containing the coordinates of the points in the Yin grid. 
+    The keys are ``"x"``, ``"y"``, ``"z"`` for Cartesian coordinates 
+    and ``"R"``, ``"theta"``, ``"phi"`` for spherical coordinates.
+    Contain the entire grid including the overlapping region.
+    Arrays of shape ``(nx, ny, nz)``.
+
+    :type: dict
+
+  .. py:attribute:: yang
+
+    Dictionary containing the coordinates of the points in the Yang grid. 
+    The keys are ``"x"``, ``"y"``, ``"z"`` for Cartesian coordinates 
+    and ``"R"``, ``"theta"``, ``"phi"`` for spherical coordinates.
+    Contain the entire grid including the overlapping region.
+    Arrays of shape ``(nx, ny, nz)``.
+
+    :type: dict
+
+  .. py:attribute:: good_indices
+
+    Boolean array of shape ``(nx*ny*nz,)`` to flag the points that are not in the overlapping region between the Yin and Yang grids.
+
+    :type: numpy.ndarray
+
+  .. py:attribute:: points_per_layer
+    
+    Number of points per radial layer in the Yin (or Yang) grid after removing the overlapping points.
+
+    :type: int
+
+  .. py:attribute:: surface_mesh
+
+    A surface mesh of the outer shell of the sphere generated from the points of the last radial layer of 
+    both grids.
+
+    :type: :py:class:`ShellMesh <stagpyviz.ShellMesh>`
+
+  .. py:attribute:: elements
+
+    An instance of the class :py:class:`Wedge3D <stagpyviz.Wedge3D>` 
+    to represent the wedge elements of the mesh and perform operations on them.
+
+    :type: :py:class:`Wedge3D <stagpyviz.Wedge3D>`
+
+  .. py:attribute:: grid_dimensions
+
+    Tuple of the dimensions of the Yin (or Yang) grid in the x, y and z directions.
+
+    :type: tuple[int,int,int]
+
+  .. py:attribute:: grid_npoints
+
+    Total number of points in the Yin (or Yang) grid.
+
+    :type: int
+
+  .. py:attribute:: yin_radial_idx
+
+    2D array of shape ``(points_per_layer, n_radial_layers)`` containing the indices of the points in the Yin grid reshaped radially.
+
+    :type: numpy.ndarray
+
+  .. py:attribute:: yang_radial_idx
+
+    2D array of shape ``(points_per_layer, n_radial_layers)`` containing the indices of the points in the Yang grid reshaped radially.
+
+    :type: numpy.ndarray
+
+  .. py:attribute:: surface_idx
+
+    1D array of shape ``(2*points_per_layer,)`` containing the indices of the points in the surface mesh 
+    (last radial layer of both grids).
+
+    :type: numpy.ndarray
+
+  .. py:attribute:: surface_cells
+
+    1D array of shape ``(number_of_surface_cells,)`` containing the indices of the cells in the surface mesh 
+    (last radial layer of both grids).
+
+    :type: numpy.ndarray
+
+  :Methods:
 
   """
   def __init__(self, rawbin:Path|str, *args, deep:bool=False, **kwargs):
@@ -170,6 +279,9 @@ class YinYangMesh(UnstructuredSphere):
     return self._points_per_layer
   
   def reshape_radially(self,field:np.ndarray) -> np.ndarray:
+    """
+    Reshape a field defined on the Yin or Yang grid into a 2D array of shape ``(points_per_layer, n_radial_layers)``.
+    """
     ppl = self.points_per_layer
     n   = self.grid_dimensions
     return np.reshape(field, (ppl, n[2]))
@@ -295,6 +407,49 @@ class YinYangMesh(UnstructuredSphere):
     return
   
   def reconstruct_velocity(self, velocity_raw:np.ndarray) -> None:
+    """
+    Reconstruct the velocity field from the raw velocity components defined on the Yin and Yang grids.
+    First the raw coordinates of the points are transformed such that:
+
+    .. math::
+      \\begin{split}
+        r &= z_{\\text{raw}} + r_{\\text{cmb}} \\\\
+        \\theta &= \\frac{\\pi}{4} - x_{\\text{raw}} \\\\
+        \\phi &= y_{\\text{raw}} - \\frac{3\\pi}{4}
+      \\end{split}
+
+    Then the velocity components are transformed from the Yin-Yang grid coordinates to Cartesian coordinates 
+    using the following relations:
+
+    .. math::
+      \\begin{split}
+        \\mathbf{v}_{\\text{yin}} &= 
+        \\begin{bmatrix}
+          v_0 \\sin(\\theta)\\cos(\\phi) - v_1\\sin(\\phi) + v_2\\cos(\\theta)\\cos(\\phi) \\\\
+          v_0 \\sin(\\theta)\\sin(\\phi) + v_1\\cos(\\phi) + v_2\\cos(\\theta)\\sin(\\phi) \\\\
+          -v_0 \\cos(\\theta) + v_2\\sin(\\theta)
+        \\end{bmatrix} \\\\
+        \\mathbf{v}_{\\text{yang}} &=
+        \\begin{bmatrix}
+          -v_{\\text{yin}_x} \\\\
+          v_{\\text{yin}_z} \\\\
+          v_{\\text{yin}_y}
+        \\end{bmatrix}
+      \\end{split}
+
+    where :math:`v_0`, :math:`v_1` and :math:`v_2` are the raw velocity components defined on the Yin and Yang grids,
+    :math:`\\mathbf{v}_{\\text{yin}}` and :math:`\\mathbf{v}_{\\text{yang}}` are the velocity vectors 
+    in Cartesian coordinates on the Yin and Yang grids respectively.
+
+    :param numpy.ndarray velocity_raw: 
+      The raw velocity components defined on the Yin and Yang grids.
+      The array should have shape ``(3, nx, ny, nz, 2)``, where the first dimension corresponds to the velocity components, 
+      the next three dimensions correspond to the grid dimensions and the last dimension corresponds to the Yin and Yang grids (0 for Yin and 1 for Yang).
+
+    .. warning::
+      This is an in-place operation that modifies the input array ``velocity_raw``.
+
+    """
     t0 = perf_counter()
     # construct a mesh grid for one grid
     header = self.header
@@ -342,6 +497,24 @@ class YinYangMesh(UnstructuredSphere):
     return
   
   def add_field(self, name:str, values:np.ndarray) -> None:
+    """
+    Add a field defined on the Yin and Yang grids to the mesh. 
+    The field can be either a scalar field or a vector field.
+    
+    :param str name: 
+      The name of the field to be added to the mesh.
+      This field will then be accessible in the mesh as ``self[name]``.
+    :param numpy.ndarray values:
+      The field values defined on the Yin and Yang grids.
+      For a scalar field, the array should have shape ``(nx, ny, nz, 2)``, 
+      where the first three dimensions correspond to the grid dimensions 
+      and the last dimension corresponds to the Yin and Yang grids (0 for Yin and 1 for Yang).
+      For a vector field, the array should have shape ``(3, nx, ny, nz, 2)``, 
+      where the first dimension corresponds to the vector components, 
+      the next three dimensions correspond to the grid dimensions and
+      the last dimension corresponds to the Yin and Yang grids (0 for Yin and 1 for Yang).
+
+    """
     t0 = perf_counter()
     n            = self.grid_dimensions
     ppl          = self.points_per_layer
@@ -390,11 +563,36 @@ class YinYangMesh(UnstructuredSphere):
     return
   
   def add_fields(self, fields:dict) -> None:
+    """
+    Add multiple fields defined on the Yin and Yang grids to the mesh.
+
+    :param dict fields:
+      A dictionary containing the fields to be added to the mesh.
+      The keys of the dictionary are the names of the fields and 
+      the values are the field values defined on the Yin and Yang grids.
+      The field values should be in the same format as described in 
+      the :py:meth:`add_field <stagpyviz.YinYangMesh.add_field>` method.
+
+    """
     for key in fields.keys():
       self.add_field(key, fields[key])
     return
   
   def compute_gradient(self, field:np.ndarray) -> np.ndarray:
+    """
+    Compute the Cartesian gradient of a scalar field defined on the mesh 
+    using the shape functions of the wedge elements.
+
+    :param numpy.ndarray field:
+      The scalar field defined on the mesh for which the gradient is to be computed.
+      The array should have shape ``(number_of_points,)``.
+    :return:
+      The gradient of the field at the centroids of the elements.
+      The array has shape ``(number_of_cells, 3)``, 
+      where the last dimension corresponds to the x, y and z components of the gradient.
+    :rtype: numpy.ndarray
+    
+    """
     t0 = perf_counter()
     elidx = self.cell_connectivity.reshape((self.number_of_cells, self.nodes_per_el))
     elcoords = self.points[ elidx, : ]  # (number_of_cells, nodes_per_el, 3)
