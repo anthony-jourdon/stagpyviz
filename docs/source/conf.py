@@ -51,3 +51,5 @@ html_static_path = []
 
 html_theme_options = {'prev_next_buttons_location': 'both',
                       'style_external_links': True,}
+
+html_favicon = 'figures/favicon.png'
