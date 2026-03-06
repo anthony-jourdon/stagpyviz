@@ -12,6 +12,12 @@ class P1_2D(Element2D):
   Nodes are ordered couterclockwise
   and the reference coordinates :math:`\\xi, \\eta` range from 0 to 1 with the constraint :math:`\\xi + \\eta \\leq 1`.
   Inherits from :py:class:`Element2D <stagpyviz.Element2D>`.
+
+  .. image:: ../figures/el_P1.png
+    :align: center
+    :alt: P1 triangle reference element
+    :width: 300
+
   """
   def __init__(self):
     super().__init__()

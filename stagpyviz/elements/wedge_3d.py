@@ -12,6 +12,11 @@ class Wedge3D(Element3D):
   Composed of two triangular faces and three quadrilateral faces.
   Inherits from :py:class:`Element3D <stagpyviz.Element3D>`.
   
+  .. image:: ../figures/el_W1.png
+    :align: center
+    :alt: Wedge reference element
+    :width: 300
+
   """
   def __init__(self):
     super().__init__()

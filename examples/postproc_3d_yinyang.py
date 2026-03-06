@@ -8,6 +8,49 @@ from time import perf_counter
 
 
 class IOutils:
+  """
+  Class to manage the paths and file management for the postprocessing of StagYY 3D YinYang models.
+  This class is used to store the paths to the model directory and output directory, 
+  as well as the list of fields to be added to the output mesh.
+  This class also contains the stepping parameters for time series processing and the 
+  time series information to be written in the pvd file.
+
+  :param str model_name: Name of the model.
+  :param str model_dir: Name of the model directory.
+  :param str basedir: Absolute path to the base model directory.
+  :param str pvd: Name of the output pvd file.
+  :param str output_dir: Absolute path to the output directory.
+  :param list[str] output_fields: List of fields that can be retrieved from binary files output by StagYY.
+  :param list[str] regions: List of region fields to be merged into a single regions field in the output mesh, default: ["composition"].
+  :param bool is_surface: Boolean indicating whether to output the surface (True) or the volume (False), default: False.
+  :param int step: Step number to process, if None, the entire directory will be processed, default: None.
+  :param int step_start: Step number to start processing, default: 0.
+  :param int step_end: Step number to end processing, if None, the entire directory will be processed, default: None.
+  :param int dstep: Step increment for processing, default: 1.
+  :param bool reset_fields: Boolean indicating whether to reset the timeseries, default: False.
+  :param str prefix: Prefix to be added to the output file names, default: "".
+
+  Currently the supported fields that can be retrieved from binary files output by StagYY are:
+
+  .. code-block:: python
+
+    filelist = {
+      "composition": "c",
+      "divergence" : "div",
+      "e2"         : "ed",
+      "viscosity"  : "eta",
+      "nrc"        : "nrc", 
+      "primordial" : "prm",
+      "proterozoic": "prot", 
+      "stress"     : "str",
+      "temperature": "t",
+      "tracer"     : "tra",
+      "vorticity"  : "vor",
+      "velocity"   : "vp",
+      "pressure"   : "vp", # pressure is stored in the 4th component of the velocity file
+    }
+
+  """
   def __init__(
       self,
       model_name:str, 
@@ -83,6 +126,16 @@ class IOutils:
     return s
 
 class Field:
+  """
+  Generic class to represent a field that can be added to the mesh. 
+  By default, this class assumes that the field is stored in a binray file output by StagYY.
+  Different types of fields can be created by inheriting from this class and implementing their own 
+  methods to retrieve the data and add them to the mesh.
+
+  :param str name: Name of the field, should correspond the the name registered in the IOutils class filelist attribute.
+  :param IOutils io_utils: Path and file management utilities
+  :param stagpyviz.YinYangMesh mesh: Volume mesh reconstructed as an unstructured grid
+  """
   def __init__(self, name:str, io_utils:IOutils, mesh:spv.YinYangMesh):
     self.name     = name
     self.io_utils = io_utils

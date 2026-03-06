@@ -12,6 +12,11 @@ class Q1_2D(Element2D):
   Reference coordinates :math:`\\boldsymbol \\xi = (\\xi, \\eta) \\in [-1, 1]^2`.
   Inherits from :py:class:`Element2D <stagpyviz.Element2D>`.
 
+  .. image:: ../figures/el_Q1.png
+    :align: center
+    :alt: Q1 quadrilateral reference element
+    :width: 300
+
   """
   def __init__(self):
     super().__init__()
