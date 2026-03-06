@@ -289,6 +289,7 @@ def class_instances(mesh:spv.YinYangMesh, io_utils:IOutils) -> dict[str,Field]:
   avail_fields["primordial"]  = Field("primordial", io_utils, mesh)
   avail_fields["proterozoic"] = Field("proterozoic", io_utils, mesh)
   avail_fields["vorticity"]   = Field("vorticity", io_utils, mesh)
+  avail_fields["viscosity"]   = Field("viscosity", io_utils, mesh)
   return avail_fields
 
 def add_fields_to_mesh(mesh:spv.YinYangMesh, fields_to_add:list[str], class_fields:dict[str,Field], regions:list[str]=["composition"]) -> None:
@@ -308,7 +309,7 @@ def add_fields_to_mesh(mesh:spv.YinYangMesh, fields_to_add:list[str], class_fiel
     if len(regions) > 1: # only merge if there are more than 1 region
       # merge the region fields into a single field
       for region in regions:
-        mesh["regions"] += (mesh[region] > 0.5) * (regions.index(region) + 1)
+        mesh["regions"] += (mesh[region] > 0.1) * (regions.index(region) + 1)
         mesh.point_data.pop(region)
     else:
       mesh["regions"] = mesh[regions[0]]
