@@ -8,15 +8,15 @@ except ImportError:
 
 class Q1_2D(Element2D):
   """
-  Quadrilateral bilinear (Q1) parametric element in 2D.
-  Nodes are ordered as:
-  
-    2 ---- 3
-    |      |
-    |      |
-    0 ---- 1
+  Quadrilateral bilinear :math:`\\mathcal{Q}_1` parametric element in 2D, :math:`\\mathbb R^2`.
+  Reference coordinates :math:`\\boldsymbol \\xi = (\\xi, \\eta) \\in [-1, 1]^2`.
+  Inherits from :py:class:`Element2D <stagpyviz.Element2D>`.
 
-  and the reference coordinates (xi, eta) range from -1 to 1.
+  .. image:: ../figures/el_Q1.png
+    :align: center
+    :alt: Q1 quadrilateral reference element
+    :width: 300
+
   """
   def __init__(self):
     super().__init__()
@@ -24,6 +24,22 @@ class Q1_2D(Element2D):
     return
   
   def evaluate_Ni(self, xi:np.ndarray):
+    """
+    Evaluate the shape functions at given reference coordinates :math:`\\boldsymbol \\xi = (\\xi, \\eta)`.
+    The shape functions for a bilinear quadrilateral are given by:
+
+    .. math::
+      \\begin{split}
+        N_0(\\xi, \\eta) &= \\frac{1}{4} (1 - \\xi) (1 - \\eta) \\\\
+        N_1(\\xi, \\eta) &= \\frac{1}{4} (1 + \\xi) (1 - \\eta) \\\\
+        N_2(\\xi, \\eta) &= \\frac{1}{4} (1 - \\xi) (1 + \\eta) \\\\
+        N_3(\\xi, \\eta) &= \\frac{1}{4} (1 + \\xi) (1 + \\eta)
+      \\end{split}
+
+    :param numpy.ndarray xi: Array of shape ``(2,)`` containing the reference coordinates.
+    :return: Array of shape ``(4,)`` containing the shape function values at the given reference coordinates.
+    :rtype: numpy.ndarray
+    """
     Ni = np.zeros((self.basis_per_el),dtype=np.float64)
     Ni[0] = 0.25 * (1.0 - xi[0]) * (1.0 - xi[1])
     Ni[1] = 0.25 * (1.0 + xi[0]) * (1.0 - xi[1])
@@ -32,10 +48,40 @@ class Q1_2D(Element2D):
     return Ni
   
   def Ni_centroid(self):
+    """
+    Return the shape function values at the centroid of the element.
+    For the chosen bilinear quadrilateral, the shape functions at the centroid are all equal to 1/4.
+
+    :return: Array of shape ``(4,)`` containing the shape function values at the element centroid.
+    :rtype: numpy.ndarray
+    """
     Ni = np.ones((self.basis_per_el), dtype=np.float64) * 0.25
     return Ni
   
   def evaluate_GNi(self, xi:np.ndarray):
+    """
+    Evaluate the derivatives of the shape functions with respect to the reference coordinates 
+    at given reference coordinates :math:`\\boldsymbol \\xi = (\\xi, \\eta)`.
+    The derivatives of the shape functions for a bilinear quadrilateral are given by:
+
+    .. math::
+      \\frac{\\partial N_k}{\\partial \\boldsymbol \\xi} = \\frac{1}{4}
+      \\begin{bmatrix}
+        -(1 - \\eta) & -(1 - \\xi) \\\\
+        (1 - \\eta) & -(1 + \\xi) \\\\
+        -(1 + \\eta) & -(1 - \\xi) \\\\
+        (1 + \\eta) & -(1 + \\xi)
+      \\end{bmatrix}
+
+    where the rows correspond to the shape functions :math:`N_k` 
+    and the columns correspond to the reference coordinates :math:`(\\xi, \\eta)`.
+
+    :param numpy.ndarray xi: Array of shape ``(2,)`` containing the reference coordinates.
+    :return: 
+      Array of shape ``(4, 2)`` containing the derivatives of the shape functions 
+      with respect to the reference coordinates at the given reference coordinates.
+    :rtype: numpy.ndarray
+    """
     GNi = np.zeros((self.basis_per_el,2),dtype=np.float64)
     GNi[0,0] = -0.25 * (1.0 - xi[1]) # dN0/dxi
     GNi[0,1] = -0.25 * (1.0 - xi[0]) # dN0/deta
@@ -49,13 +95,14 @@ class Q1_2D(Element2D):
   
   def GNi_centroid(self):
     """
-    Returns the shape function derivatives at the element centroid (xi=0, eta=0).
-    GNi[i, d] = dN_i/dxi_d  where i=node, d=direction (0=xi, 1=eta)
-
-    Returns
-    -------
-    np.ndarray
-        Array of shape (4, 2) with shape function derivatives at centroid.
+    Evaluate the derivatives of the shape functions with respect to the reference coordinates at the element centroid.
+    See :py:meth:`evaluate_GNi <stagpyviz.Q1_2D.evaluate_GNi>` for the shape function derivatives 
+    with respect to the reference coordinates.
+    
+    :return: 
+      Array of shape ``(4, 2)`` containing the derivatives of the shape functions 
+      with respect to the reference coordinates at the element centroid.
+    :rtype: numpy.ndarray
     """
     GNi = np.array([
       [-0.25, -0.25],  # node 0

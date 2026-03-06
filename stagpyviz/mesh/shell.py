@@ -12,6 +12,59 @@ except ImportError:
   from stagpyviz.mesh.spherical_3d import UnstructuredSphere
 
 class ShellMesh(UnstructuredSphere):
+  """
+  Class representing the surface mesh of a spherical shell, which can be loaded from a VTU file or created from a point cloud.
+  Inherits from :py:class:`UnstructuredSphere` and `pyvista.UnstructuredGrid`_.
+  
+  The mesh is represented as a collection of triangular facets defining :math:`\\mathcal P_1` elements in :math:`\\mathbb R^3`
+  using the class :py:class:`P1_2D_R3`.
+
+  The constructor can be called in three ways:
+
+  1. 
+    With a single argument that is a path to a VTU file containing an unstructured grid. 
+    The mesh will be loaded from the file, and point and cell data will be copied if available.
+
+  2. 
+    With a single argument that is a :py:class:`pyvista.UnstructuredGrid` object. 
+    The mesh will be created from the provided unstructured grid, and point and cell data will be copied if available.
+
+  3. 
+    With a single argument that is a :py:class:`numpy.ndarray` of shape ``(number_of_points, 3)`` containing the coordinates of points. 
+    The mesh will be created as the convex hull of the provided points, and a ``"neighbors"`` array representing the 
+    connectivity of the facets will be added to the cell data.
+
+  :Attributes:
+
+  .. py:attribute:: elements
+    
+    The isoparametric element class representing triangular facets in 3D space.
+
+    :type: :py:class:`P1_2D_R3 <stagpyviz.P1_2D_R3>`
+
+  .. py:attribute:: points_normal
+
+    An array of shape ``(number_of_points, 3)`` containing the normal vectors at each point.
+    The normals are evaluated as the normalized position vectors of the points.
+
+    :type: numpy.ndarray
+
+  .. py:attribute:: cells_normal
+
+    An array of shape ``(number_of_cells, 3)`` containing the normal vectors at each cell (facet).
+    The normals are evaluated as the normalized position vectors of the cell centroids.
+
+    :type: numpy.ndarray
+
+  .. py:attribute:: neighbors
+
+    An array of shape ``(number_of_cells, 3)`` containing the indices of neighboring cells across each facet.
+    This attribute is only available if the mesh was created from a points array or if the VTU file from which the mesh was loaded contained this information,
+    and is stored in the cell data under the key ``"neighbors"``.
+
+    :type: numpy.ndarray
+
+  """
   def __init__(self, *args, deep:bool=False, **kwargs):
     self.elements:P1_2D_R3 = P1_2D_R3()
 

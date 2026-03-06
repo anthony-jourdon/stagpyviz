@@ -9,6 +9,11 @@ except ImportError:
     from binheaders import BinHeader
 
 class BinHeader64(BinHeader):
+  """
+  Class to read the binary header of a StagYY output file, for **64-bit** files. 
+  It inherits from :py:class:`BinHeader <stagpyviz.BinHeader>`, 
+  and overrides the necessary attributes and methods to handle 64-bit data. 
+  """
   def __init__(self,file:io.BufferedReader):
     super().__init__(file)
     self.int_str:str      = 'q'  # 64 bits signed integer
