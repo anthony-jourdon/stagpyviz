@@ -9,8 +9,18 @@ Usage is simply
 python examples/postproc_3d_yinyang.py -f configuration_file.yaml
 ```
 
+## Package and API documentation
+The online documentation is available [at this link](https://stagpyviz.readthedocs.io/en/latest/index.html)
+
 ## Installation
-For now there is no setup file, so to "install" the package you need to add it to your `PYTHONPATH`:
+### Option 1: using pip
+In the package repository:
+```
+pip install .
+```
+
+### Option 2: adding to PYTHONPATH
+To "install" the package you need to add it to your `PYTHONPATH`:
 
 ``` bash
 export PYTHONPATH=path/to/stagpyviz:$PYTHONPATH
