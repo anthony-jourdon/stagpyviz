@@ -25,6 +25,7 @@ def timeseries_process(pvdfname:str|Path, start_line:int|None=None) -> dict:
   :type start_line: int|None
   :return: Dictionary containing the time series information
   :rtype: dict
+
   """
   if not isinstance(pvdfname, (str, Path)):
     raise ValueError("pvdfname must be a string or a Path object.")
@@ -208,7 +209,7 @@ def timeseries_write(fname:str, timeseries:dict, prefix:str|None=None, extension
   :type timeseries: dict
   :param prefix: Optional prefix for the step file names (default is None)
   :type prefix: str|None
-  :param extension: File extension for the step files (default is ``"vts")
+  :param extension: File extension for the step files (default is ``"vts"``)
   :type extension: str
   :param erase: Whether to erase the existing file content if the file already exists (default is False)
   :type erase: bool
