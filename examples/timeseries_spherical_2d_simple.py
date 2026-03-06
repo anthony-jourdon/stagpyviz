@@ -75,8 +75,8 @@ def write_pvd_only(frames, model_name, mdir, odir, time_series, fnames, flist):
   return
 
 def test():
-  model_name = "Ra7_50m15wbcc_noH"
-  model_dir  = "Ra7_50m15wbcc_noH"
+  model_name = "Ra7_50m15wbcc_Hc"
+  model_dir  = "Ra7_50m15wbcc_Hc"
   #model_name = "Ra7_pl_cont_LR_suite"
   mdir = os.path.join(os.environ["SCRATCH"], model_dir)
   print(f"Model directory: {mdir}")
@@ -87,7 +87,7 @@ def test():
 
   fnames = fields_name()
   flist  = ["temperature", "composition", "viscosity", "density", "stress", "e2", "velocity"]
-  frames = np.arange(0,71) #443
+  frames = np.arange(209,366) #443
 
   # first step we create the mesh, then we just update the fields
   istep = 0
