@@ -5,7 +5,7 @@ from pathlib import Path
 def timeseries_process(pvdfname:str|Path, start_line:int|None=None) -> dict:
   """
   Reads a .pvd file and extracts the time series information. 
-  It uses the specific regular expression ``r'(?:^(step\d+)/)?.*0(\d+)(.*)'`` 
+  It uses the specific regular expression ``r'(?:^(step\\d+)/)?.*0(\\d+)(.*)'`` 
   to extract the step directory and step number from the file name.
   The time series information is stored in a dictionary with the following keys:
 
