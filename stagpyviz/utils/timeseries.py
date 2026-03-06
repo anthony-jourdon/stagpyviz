@@ -34,13 +34,14 @@ def timeseries_process(pvdfname:str|Path, start_line:int|None=None) -> dict:
       timeseries["time"].append(time_str)
       timeseries["fname"].append(file_str)
       timeseries["line"].append(l)
-      matchObj = re.match(r'(?:^(step\d+)/)?.*0(\d+)(.*)',file_str)
+      # (?:^(.*(\d+)?)/)?.*0(\d+)(.*)
+      matchObj = re.match(r'(?:^(.*(\d+)?)/)?([Aa-zZ]+0+)?(\d+)(.*)',file_str)
       if matchObj:
         if matchObj.group(1):
           timeseries["step_dir"].append(matchObj.group(1))
         else:
           timeseries["step_dir"].append('')
-        timeseries["step"].append(matchObj.group(2))
+        timeseries["step"].append(matchObj.group(4))
       l += 1
   return timeseries
   
