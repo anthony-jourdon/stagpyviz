@@ -64,9 +64,19 @@ class ShellMesh(UnstructuredSphere):
 
     :type: numpy.ndarray
 
+  .. py:attribute:: cells_area
+
+    An array of shape ``(number_of_cells,)`` containing the area of each triangular facet.
+    The area is computed using the determinant of the Jacobian of the transformation from the reference element to the physical element such that:
+    :math:`A_e = \\frac{1}{2} |\\det(J_e)|`.
+
+    :type: numpy.ndarray
+
+
   """
   def __init__(self, *args, deep:bool=False, **kwargs):
     self.elements:P1_2D_R3 = P1_2D_R3()
+    self._cells_area = None
 
     # Check if user provided a VTU file to load the mesh from
     if len(args) == 1 and isinstance(args[0], (Path, str)):
@@ -141,6 +151,50 @@ class ShellMesh(UnstructuredSphere):
     if "neighbors" not in self.cell_data:
       raise ValueError("Neighbors information not available in cell data.")
     return self.cell_data["neighbors"]
+
+  @property
+  def cells_area(self) -> np.ndarray:
+    if self._cells_area is None:
+      # Compute the area of each triangle
+      cell_centroids = self.centroids # cell cetroids in cartesian coordinates
+      elidx = self.cell_connectivity.reshape((self.number_of_cells, self.elements.basis_per_el))
+      el_centroids = cell_centroids[elidx, :]
+      GNi  = self.elements.GNi_centroid()
+      J    = self.elements.evaluate_Jacobian(GNi, el_centroids)
+      detJ = self.elements.evaluate_detJ(J)
+      self._cells_area = 0.5 * np.abs(detJ)
+    return self._cells_area
+
+  def integrate_per_cell(self, field:np.ndarray) -> np.ndarray:
+    """
+    Compute the numerical integral of a field over each cell of the mesh using a 1 point quadrature rule.
+    The field can be either a point field (defined at mesh points) or a cell field (defined at mesh cells). 
+    If the field is a point field, it will be interpolated to cell centroids using the shape functions 
+    of the elements evaluated at the cell centroids before integration. 
+    The integral over each cell is computed such that:
+
+    .. math:: 
+      I_e = \\int_{\\Omega_e} \\phi_e \\, dS \\approx \\phi_e A_e
+    
+    where :math:`\\phi_e` is the value of the field at the cell centroid and :math:`A_e` is the area of the cell.
+
+    :param field: A 1D array containing the values of the field to integrate, either at points or at cells.
+    :type field: numpy.ndarray
+    :return: A 1D array of shape ``(number_of_cells,)`` containing the integral of the field over each cell.
+    :rtype: numpy.ndarray
+    """
+    elidx = self.cell_connectivity.reshape((self.number_of_cells, self.elements.basis_per_el))
+    if not self.is_cell_field(field):
+      if self.is_point_field(field):
+        # first interpolate point field to cell centroids
+        Ni_centroid = self.elements.Ni_centroid() # shape functions at cell centroids
+        _field = np.einsum('k,ek->e', Ni_centroid, field[elidx]) # interpolate field at cell centroids
+      else:
+        raise ValueError(f"Field must be either a point field ({self.number_of_points}) or a cell field ({self.number_of_cells}), found {field.shape}.")
+    else:
+      _field = field
+    integral = _field * self.cells_area
+    return integral
 
   def locate_points(self, points:np.ndarray, max_it:int=1000, tol:float=1e-12) -> tuple[np.ndarray, np.ndarray]:
     print("WARNING: ShellMesh.locate_points may be inaccurate for points near element boundaries.")
