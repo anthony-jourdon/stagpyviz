@@ -319,22 +319,58 @@ class YinYangMesh(UnstructuredSphere):
       self.generate_radial_indices()
     return self.yang["idx"]
   
+  def get_radial_indices(self, k:int) -> np.ndarray:
+    """
+    Get the nodes indices of the points in the k-th radial layer of the reconstructed
+    unstructured mesh. Useful to extract nodal values at specific radial layers.
+
+    :param int k: 
+      The index of the radial layer for which to get the points indices.
+      The index starts from 0 for the innermost layer and goes up to n-1 for the outermost layer.
+      Should never be outside of the range [0, n-1] where n is the number 
+      of radial layers in the grid (:py:attr:`grid_dimensions[2]`).
+    :return:
+      A 1D array of shape (2*:py:attr:`points_per_layer`,) containing the indices of the points in the k-th radial layer of both grids.
+    :rtype: numpy.ndarray
+    """
+    n   = self.grid_dimensions
+    ppl = self.points_per_layer
+    if k < 0 or k >= n[2]:
+      raise ValueError(f"Invalid radial layer index k={k}. Must be in the range [0, {n[2]-1}]")
+    idx = np.zeros((2*ppl), dtype=np.int32)
+    idx[0:ppl]     = self.yin_radial_idx[:, k]
+    idx[ppl:2*ppl] = self.yang_radial_idx[:, k]
+    return idx
+
   @property
   def surface_idx(self) -> np.ndarray:
-    n        = self.grid_dimensions
-    ppl      = self.points_per_layer
-    yin_idx  = self.yin_radial_idx
-    yang_idx = self.yang_radial_idx
-    idx = np.zeros((2*ppl), dtype=np.int32)
-    idx[0:ppl]     = yin_idx[:, n[2]-1]
-    idx[ppl:2*ppl] = yang_idx[:, n[2]-1]
-    return idx
+    n = self.grid_dimensions
+    return self.get_radial_indices(k=n[2]-1)
   
+  def get_radial_cells(self, k:int) -> np.ndarray:
+    """
+    Get the cells indices of the cells in the k-th radial layer of the reconstructed
+    unstructured mesh. Useful to extract cell values at specific radial layers.
+
+    :param int k: 
+      The index of the radial layer for which to get the cells indices.
+      The index starts from 1 for the innermost layer and goes up to n-1 for the outermost layer.
+      Should never be outside of the range [1, n-1] where n is the number 
+      of radial layers in the grid (:py:attr:`grid_dimensions[2]`).
+    :return:
+      A 1D array of shape (number_of_cells_in_layer,) containing the indices of the cells in the k-th radial layer of both grids.
+    :rtype: numpy.ndarray
+    """
+    n = self.grid_dimensions
+    if k < 1 or k >= n[2]:
+      raise ValueError(f"Invalid radial layer index k={k}. Must be in the range [1, {n[2]-1}]")
+    shell_nel = self.surface_mesh.number_of_cells
+    return np.arange((k-1)*shell_nel, k*shell_nel, dtype=np.int64)
+
   @property
   def surface_cells(self) -> np.ndarray:
-    n         = self.grid_dimensions
-    shell_nel = self.surface_mesh.number_of_cells
-    return np.arange((n[2]-2)*shell_nel, (n[2]-1)*shell_nel, dtype=np.int64)
+    n = self.grid_dimensions
+    return self.get_radial_cells(k=n[2]-1)
 
   @property
   def surface_mesh(self) -> ShellMesh:
@@ -642,12 +678,16 @@ def test():
   print(fields["temperature"].shape)
   
   mesh.add_fields(fields)
+  mesh["grad_T"] = mesh.compute_gradient(mesh["temperature"])
+
   # get the surface mesh and velocity field on it
   surface_mesh = mesh.surface_mesh
   surface_mesh["velocity"] = mesh["velocity"][mesh.surface_idx,:]
+  surface_mesh["grad_T"] = mesh["grad_T"][mesh.surface_cells,:]
 
   plotter = pvs.Plotter()
-  plotter.add_mesh(surface_mesh, scalars="velocity", cmap="viridis", show_scalar_bar=True)
+  plotter.add_mesh(surface_mesh, scalars="grad_T", cmap="viridis", show_scalar_bar=True)
+  #plotter.add_mesh(mesh, scalars="velocity", cmap="viridis", show_scalar_bar=True)
   plotter.show()
   #mesh["velocity_r"] = mesh.vector_cartesian_to_spherical(mesh["velocity"])
   
