@@ -57,6 +57,7 @@ class YinYangMesh(UnstructuredSphere):
     Arrays of shape ``(nx, ny, nz)``.
 
     :type: dict
+    :canonical: stagpyviz.YinYangMesh.yin
 
   .. py:attribute:: yang
 
@@ -67,18 +68,21 @@ class YinYangMesh(UnstructuredSphere):
     Arrays of shape ``(nx, ny, nz)``.
 
     :type: dict
+    :canonical: stagpyviz.YinYangMesh.yang
 
   .. py:attribute:: good_indices
 
     Boolean array of shape ``(nx*ny*nz,)`` to flag the points that are not in the overlapping region between the Yin and Yang grids.
 
     :type: numpy.ndarray
+    :canonical: stagpyviz.YinYangMesh.good_indices
 
   .. py:attribute:: points_per_layer
     
     Number of points per radial layer in the Yin (or Yang) grid after removing the overlapping points.
 
     :type: int
+    :canonical: stagpyviz.YinYangMesh.points_per_layer
 
   .. py:attribute:: surface_mesh
 
@@ -86,6 +90,7 @@ class YinYangMesh(UnstructuredSphere):
     both grids.
 
     :type: :py:class:`ShellMesh <stagpyviz.ShellMesh>`
+    :canonical: stagpyviz.YinYangMesh.surface_mesh
 
   .. py:attribute:: elements
 
@@ -93,30 +98,35 @@ class YinYangMesh(UnstructuredSphere):
     to represent the wedge elements of the mesh and perform operations on them.
 
     :type: :py:class:`Wedge3D <stagpyviz.Wedge3D>`
+    :canonical: stagpyviz.YinYangMesh.elements
 
   .. py:attribute:: grid_dimensions
 
     Tuple of the dimensions of the Yin (or Yang) grid in the x, y and z directions.
 
     :type: tuple[int,int,int]
+    :canonical: stagpyviz.YinYangMesh.grid_dimensions
 
   .. py:attribute:: grid_npoints
 
     Total number of points in the Yin (or Yang) grid.
 
     :type: int
+    :canonical: stagpyviz.YinYangMesh.grid_npoints
 
   .. py:attribute:: yin_radial_idx
 
     2D array of shape ``(points_per_layer, n_radial_layers)`` containing the indices of the points in the Yin grid reshaped radially.
 
     :type: numpy.ndarray
+    :canonical: stagpyviz.YinYangMesh.yin_radial_idx
 
   .. py:attribute:: yang_radial_idx
 
     2D array of shape ``(points_per_layer, n_radial_layers)`` containing the indices of the points in the Yang grid reshaped radially.
 
     :type: numpy.ndarray
+    :canonical: stagpyviz.YinYangMesh.yang_radial_idx
 
   .. py:attribute:: surface_idx
 
@@ -124,6 +134,7 @@ class YinYangMesh(UnstructuredSphere):
     (last radial layer of both grids).
 
     :type: numpy.ndarray
+    :canonical: stagpyviz.YinYangMesh.surface_idx
 
   .. py:attribute:: surface_cells
 
@@ -131,6 +142,7 @@ class YinYangMesh(UnstructuredSphere):
     (last radial layer of both grids).
 
     :type: numpy.ndarray
+    :canonical: stagpyviz.YinYangMesh.surface_cells
 
   :Methods:
 
