@@ -57,16 +57,16 @@ class Element:
       For multiple elements, array of the shape ``(n_cells, reference dim, physical dim)``.
     :rtype: numpy.ndarray
     """
-    if xe.ndim == 2:
-      J = np.matmul(xe.T, GNi)
-    elif xe.ndim == 3:
-      # Compute Jacobian for all elements: J = xe^T @ GNi
-      # elcoor is (n_cells, nnodes, dim), GNi is (nnodes, dim)
-      # We need: J[e,i,j] = sum_k GNi[k,j] * elcoor[e,k,i]
-      # Result: (n_cells, dim, dim)
-      J = np.einsum('kj,eki->eij', GNi, xe)
-    else:
-      raise ValueError("xe must be 2D or 3D array.")
+    GNi_idx = 'kj'
+    xe_idx  = 'ki'
+    J_idx   = 'ij'
+    if xe.ndim == 3:
+      xe_idx  = 'e'+xe_idx
+      J_idx   = 'e'+J_idx
+    if GNi.ndim == 3:
+      GNi_idx = 'q'+GNi_idx
+      J_idx   = 'q'+J_idx
+    J = np.einsum(f'{GNi_idx},{xe_idx}->{J_idx}', GNi, xe)
     return J
   
   def evaluate_dNidx(self, invJ:np.ndarray, GNi:np.ndarray) -> np.ndarray:
@@ -135,7 +135,7 @@ class Element2D(Element):
     self.dim = 2
     return
 
-  def evaluate_detJ(self, J:np.ndarray) -> float|np.ndarray:
+  def evaluate_detJ(self, J:np.ndarray) -> np.ndarray:
     """
     Compute the determinant of the Jacobian matrix :math:`\\boldsymbol J` for a single element or multiple elements such that:
 
@@ -149,12 +149,9 @@ class Element2D(Element):
       For multiple elements, an array of shape ``(n_cells,)``.
     :rtype: float or numpy.ndarray
     """
-    if J.ndim == 2:
-      detJ:float = J[0,0]*J[1,1] - J[0,1]*J[1,0]
-    elif J.ndim == 3:
-      detJ:np.ndarray = J[:,0,0]*J[:,1,1] - J[:,0,1]*J[:,1,0]
-    else:
-      raise ValueError("J must be 2D or 3D array.")
+    if J.ndim < 2 or J.shape[-2:] != (2, 2):
+      raise ValueError("J must have shape (..., 2, 2).")
+    detJ:np.ndarray = J[...,0,0]*J[...,1,1] - J[...,0,1]*J[...,1,0]
     return detJ
   
   def evaluate_invJ(self, J:np.ndarray, detJ:float|np.ndarray) -> np.ndarray:
@@ -176,22 +173,15 @@ class Element2D(Element):
       For multiple elements, an array of shape ``(n_cells, 2, 2)``.
     :rtype: numpy.ndarray
     """
-    if J.ndim == 2:
-      invJ = np.zeros((2,2),dtype=np.float64)
-      invJ[0,0] =  J[1,1]
-      invJ[0,1] = -J[0,1]
-      invJ[1,0] = -J[1,0]
-      invJ[1,1] =  J[0,0]
-      invJ /= detJ
-    elif J.ndim == 3:
-      invJ = np.zeros_like(J)
-      invJ[:, 0, 0] =  J[:, 1, 1]
-      invJ[:, 0, 1] = -J[:, 0, 1]
-      invJ[:, 1, 0] = -J[:, 1, 0]
-      invJ[:, 1, 1] =  J[:, 0, 0]
-      invJ /= detJ[:, None, None]
-    else:
-      raise ValueError("J must be 2D or 3D array.")
+    if J.ndim < 2 or J.shape[-2:] != (2, 2):
+      raise ValueError("J must have shape (..., 2, 2).")
+    J = np.zeros_like(J)
+    invJ = np.zeros_like(J)
+    invJ[..., 0, 0] =  J[..., 1, 1]
+    invJ[..., 0, 1] = -J[..., 0, 1]
+    invJ[..., 1, 0] = -J[..., 1, 0]
+    invJ[..., 1, 1] =  J[..., 0, 0]
+    invJ /= detJ[..., None, None]
     return invJ
   
 class Element3D(Element):
@@ -210,27 +200,20 @@ class Element3D(Element):
     .. math::
       \\det(\\boldsymbol J) = J_{00}(J_{11}J_{22} - J_{12}J_{21}) - J_{01}(J_{10}J_{22} - J_{12}J_{20}) + J_{02}(J_{10}J_{21} - J_{11}J_{20})
 
-    :param numpy.ndarray J: Array of shape ``(3, 3)`` for a single element, or ``(n_cells, 3, 3)`` for multiple elements, containing the Jacobian matrix.
+    :param numpy.ndarray J: Array of shape ``(..., 3, 3)`` containing the Jacobian matrix, where the last two dimensions are the matrix indices.
     :return: 
       The determinant of the Jacobian matrix :math:`\\det(\\boldsymbol J)` for the element(s). 
-      For a single element, a float. 
-      For multiple elements, an array of shape ``(n_cells,)``.
+      For a single element, a float.
+      For multiple elements, an array with shape ``J.shape[:-2]``.
     :rtype: float or numpy.ndarray
     """
-    if J.ndim == 2:
-      detJ:float = (
-        J[0,0]*(J[1,1]*J[2,2]-J[1,2]*J[2,1]) -
-        J[0,1]*(J[1,0]*J[2,2]-J[1,2]*J[2,0]) +
-        J[0,2]*(J[1,0]*J[2,1]-J[1,1]*J[2,0])
-      )
-    elif J.ndim == 3:
-      detJ:np.ndarray = (
-        J[:,0,0]*(J[:,1,1]*J[:,2,2]-J[:,1,2]*J[:,2,1]) -
-        J[:,0,1]*(J[:,1,0]*J[:,2,2]-J[:,1,2]*J[:,2,0]) +
-        J[:,0,2]*(J[:,1,0]*J[:,2,1]-J[:,1,1]*J[:,2,0])
-      )
-    else:
-      raise ValueError("J must be 2D or 3D array.")
+    if J.ndim < 2 or J.shape[-2:] != (3, 3):
+      raise ValueError("J must have shape (..., 3, 3).")
+    detJ = (
+      J[...,0,0]   * (J[...,1,1]*J[...,2,2] - J[...,1,2]*J[...,2,1])
+      - J[...,0,1] * (J[...,1,0]*J[...,2,2] - J[...,1,2]*J[...,2,0])
+      + J[...,0,2] * (J[...,1,0]*J[...,2,1] - J[...,1,1]*J[...,2,0])
+    )
     return detJ
   
   def evaluate_invJ(self, J:np.ndarray, detJ:float|np.ndarray) -> np.ndarray:
@@ -245,32 +228,19 @@ class Element3D(Element):
       For multiple elements, an array of shape ``(n_cells, 3, 3)``.
     :rtype: numpy.ndarray
     """
-    if J.ndim == 2:
-      invJ = np.zeros((3,3),dtype=np.float64)
-      invJ[0,0] =  (J[1,1]*J[2,2]-J[1,2]*J[2,1])
-      invJ[0,1] = -(J[0,1]*J[2,2]-J[0,2]*J[2,1])
-      invJ[0,2] =  (J[0,1]*J[1,2]-J[0,2]*J[1,1])
-      invJ[1,0] = -(J[1,0]*J[2,2]-J[1,2]*J[2,0])
-      invJ[1,1] =  (J[0,0]*J[2,2]-J[0,2]*J[2,0])
-      invJ[1,2] = -(J[0,0]*J[1,2]-J[0,2]*J[1,0])
-      invJ[2,0] =  (J[1,0]*J[2,1]-J[1,1]*J[2,0])
-      invJ[2,1] = -(J[0,0]*J[2,1]-J[0,1]*J[2,0])
-      invJ[2,2] =  (J[0,0]*J[1,1]-J[0,1]*J[1,0])
-      invJ /= detJ
-    elif J.ndim == 3:
-      invJ = np.zeros_like(J)
-      invJ[:,0,0] =  (J[:,1,1]*J[:,2,2]-J[:,1,2]*J[:,2,1])
-      invJ[:,0,1] = -(J[:,0,1]*J[:,2,2]-J[:,0,2]*J[:,2,1])
-      invJ[:,0,2] =  (J[:,0,1]*J[:,1,2]-J[:,0,2]*J[:,1,1])
-      invJ[:,1,0] = -(J[:,1,0]*J[:,2,2]-J[:,1,2]*J[:,2,0])
-      invJ[:,1,1] =  (J[:,0,0]*J[:,2,2]-J[:,0,2]*J[:,2,0])
-      invJ[:,1,2] = -(J[:,0,0]*J[:,1,2]-J[:,0,2]*J[:,1,0])
-      invJ[:,2,0] =  (J[:,1,0]*J[:,2,1]-J[:,1,1]*J[:,2,0])
-      invJ[:,2,1] = -(J[:,0,0]*J[:,2,1]-J[:,0,1]*J[:,2,0])
-      invJ[:,2,2] =  (J[:,0,0]*J[:,1,1]-J[:,0,1]*J[:,1,0])
-      invJ /= detJ[:, None, None]
-    else:
-      raise ValueError("J must be 2D or 3D array.")
+    if J.ndim < 2 or J.shape[-2:] != (3, 3):
+      raise ValueError("J must have shape (..., 3, 3).")
+    invJ = np.zeros_like(J)
+    invJ[...,0,0] =  (J[...,1,1]*J[...,2,2]-J[...,1,2]*J[...,2,1])
+    invJ[...,0,1] = -(J[...,0,1]*J[...,2,2]-J[...,0,2]*J[...,2,1])
+    invJ[...,0,2] =  (J[...,0,1]*J[...,1,2]-J[...,0,2]*J[...,1,1])
+    invJ[...,1,0] = -(J[...,1,0]*J[...,2,2]-J[...,1,2]*J[...,2,0])
+    invJ[...,1,1] =  (J[...,0,0]*J[...,2,2]-J[...,0,2]*J[...,2,0])
+    invJ[...,1,2] = -(J[...,0,0]*J[...,1,2]-J[...,0,2]*J[...,1,0])
+    invJ[...,2,0] =  (J[...,1,0]*J[...,2,1]-J[...,1,1]*J[...,2,0])
+    invJ[...,2,1] = -(J[...,0,0]*J[...,2,1]-J[...,0,1]*J[...,2,0])
+    invJ[...,2,2] =  (J[...,0,0]*J[...,1,1]-J[...,0,1]*J[...,1,0])
+    invJ /= detJ[..., None, None]
     return invJ
   
 class SurfaceElement(Element):

@@ -4,8 +4,10 @@ from time import perf_counter
 # Use relative import when imported as module, absolute when run directly
 try:
     from .elements import Element3D
+    from .p1_2d import P1_2D
 except ImportError:
     from elements import Element3D
+    from p1_2d import P1_2D
 
 class Wedge3D(Element3D):
   """
@@ -44,21 +46,23 @@ class Wedge3D(Element3D):
     :return: Array of shape ``(6,)`` containing the shape function values at the given reference coordinates.
     :rtype: numpy.ndarray
     """
-    Ni = np.zeros((self.basis_per_el),dtype=np.float64)
-    # basis functions for triangle in (xi,eta) plane
-    t1 = 1.0 - xi[0] - xi[1]
-    t2 = xi[0]
-    t3 = xi[1]
-    # vertical basis functions in zeta direction
-    vm = 0.5 * (1.0 - xi[2])
-    vp = 0.5 * (1.0 + xi[2])
-    # combine to get 3D basis functions
-    Ni[0] = t1 * vm
-    Ni[1] = t2 * vm
-    Ni[2] = t3 * vm
-    Ni[3] = t1 * vp
-    Ni[4] = t2 * vp
-    Ni[5] = t3 * vp
+    Ni_triangle = P1_2D().evaluate_Ni(xi)
+    if xi.ndim == 1:
+      npoints = 1
+      xi = xi.reshape((1,3))
+      Ni_triangle = Ni_triangle.reshape((1,3))
+    elif xi.ndim == 2:
+      npoints = xi.shape[0]
+    else:
+      raise ValueError(f"xi must be a 1D array of shape (3,) or a 2D array of shape (npoints, 3), got {xi.shape}")
+    Ni = np.zeros((npoints,self.basis_per_el), dtype=np.float64)
+    vm = 0.5 * (1.0 - xi[:,2])
+    vp = 0.5 * (1.0 + xi[:,2])
+    for k in range(3):
+      Ni[:,k]   = Ni_triangle[:,k] * vm
+      Ni[:,k+3] = Ni_triangle[:,k] * vp
+    if npoints == 1:
+      Ni = Ni.reshape((self.basis_per_el))
     return Ni
   
   def Ni_centroid(self):
@@ -96,31 +100,40 @@ class Wedge3D(Element3D):
     :return: Array of shape ``(6, 3)`` containing the derivatives of the shape functions with respect to the reference coordinates at the given reference coordinates.
     :rtype: numpy.ndarray
     """
-    GNi = np.zeros((self.basis_per_el,3),dtype=np.float64)
+    if xi.ndim == 1:
+      npoints = 1
+      xi = xi.reshape((1,3))
+    elif xi.ndim == 2:
+      npoints = xi.shape[0]
+    else:
+      raise ValueError("xi must be a 1D array of shape (3,) or a 2D array of shape (npoints, 3)")
+    GNi = np.zeros((npoints,self.basis_per_el,3),dtype=np.float64)
     #dN0
-    GNi[0,0] = -0.5 * (1.0 - xi[2])
-    GNi[0,1] = -0.5 * (1.0 - xi[2])
-    GNi[0,2] = -0.5 * (1.0 - xi[0] - xi[1])
+    GNi[:,0,0] = -0.5 * (1.0 - xi[:,2])
+    GNi[:,0,1] = -0.5 * (1.0 - xi[:,2])
+    GNi[:,0,2] = -0.5 * (1.0 - xi[:,0] - xi[:,1])
     #dN1
-    GNi[1,0] = 0.5 * (1.0 - xi[2])
-    GNi[1,1] = 0.0
-    GNi[1,2] = -0.5 * xi[0]
+    GNi[:,1,0] = 0.5 * (1.0 - xi[:,2])
+    GNi[:,1,1] = 0.0
+    GNi[:,1,2] = -0.5 * xi[:,0]
     #dN2
-    GNi[2,0] = 0.0
-    GNi[2,1] = 0.5 * (1.0 - xi[2])
-    GNi[2,2] = -0.5 * xi[1]
+    GNi[:,2,0] = 0.0
+    GNi[:,2,1] = 0.5 * (1.0 - xi[:,2])
+    GNi[:,2,2] = -0.5 * xi[:,1]
     #dN3
-    GNi[3,0] = -0.5 * (1.0 + xi[2])
-    GNi[3,1] = -0.5 * (1.0 + xi[2])
-    GNi[3,2] = 0.5 * (1.0 - xi[0] - xi[1])
+    GNi[:,3,0] = -0.5 * (1.0 + xi[:,2])
+    GNi[:,3,1] = -0.5 * (1.0 + xi[:,2])
+    GNi[:,3,2] = 0.5 * (1.0 - xi[:,0] - xi[:,1])
     #dN4
-    GNi[4,0] = 0.5 * (1.0 + xi[2])
-    GNi[4,1] = 0.0
-    GNi[4,2] = 0.5 * xi[0]
+    GNi[:,4,0] = 0.5 * (1.0 + xi[:,2])
+    GNi[:,4,1] = 0.0
+    GNi[:,4,2] = 0.5 * xi[:,0]
     #dN5
-    GNi[5,0] = 0.0
-    GNi[5,1] = 0.5 * (1.0 + xi[2])
-    GNi[5,2] = 0.5 * xi[1]
+    GNi[:,5,0] = 0.0
+    GNi[:,5,1] = 0.5 * (1.0 + xi[:,2])
+    GNi[:,5,2] = 0.5 * xi[:,1]
+    if npoints == 1:
+      GNi = GNi.reshape((self.basis_per_el, 3))
     return GNi
   
   def GNi_centroid(self):
