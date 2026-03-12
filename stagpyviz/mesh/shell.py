@@ -156,13 +156,9 @@ class ShellMesh(UnstructuredSphere):
   def cells_area(self) -> np.ndarray:
     if self._cells_area is None:
       # Compute the area of each triangle
-      cell_centroids = self.centroids # cell cetroids in cartesian coordinates
       elidx = self.cell_connectivity.reshape((self.number_of_cells, self.elements.basis_per_el))
-      el_centroids = cell_centroids[elidx, :]
-      GNi  = self.elements.GNi_centroid()
-      J    = self.elements.evaluate_Jacobian(GNi, el_centroids)
-      detJ = self.elements.evaluate_detJ(J)
-      self._cells_area = 0.5 * np.abs(detJ)
+      el_coords = self.points[elidx, :]
+      self._cells_area = self.elements.compute_area(el_coords)
     return self._cells_area
 
   def integrate_per_cell(self, field:np.ndarray) -> np.ndarray:
@@ -284,10 +280,22 @@ class ShellMesh(UnstructuredSphere):
 
 def test():
   import os
-  basedir = os.path.join(os.environ["M3D_DIR"],"Stagyy","Pandora","llsvp-surface")
-  fname = "step00010_surface.vtu"
+  basedir = os.path.join("/data","jourdon","llsvp-pandora-vtu","surface-yy","LLSVP-Run3")
+  fname = "step00050-surface.vtu"
 
   mesh:ShellMesh = ShellMesh(os.path.join(basedir, fname))
+  # Compute the area of each triangle using the Jacobian determinant
+  A1 = mesh.cells_area
+  # Compute the area of each triangle using the cross product of edge vectors
+  A2 = np.zeros(mesh.number_of_cells, dtype=np.float64)
+  elidx = mesh.cell_connectivity.reshape((mesh.number_of_cells, mesh.elements.basis_per_el))
+  elcoords = mesh.points[elidx, :]
+  v0 = elcoords[:,0,:]
+  v1 = elcoords[:,1,:]
+  v2 = elcoords[:,2,:]
+  A2 = 0.5 * np.linalg.norm(np.cross(v1-v0, v2-v0), axis=1)
+  print(f"Max relative difference in area: {np.max(np.abs(A1-A2)/A2):g}")
+
 
   #plotter = pvs.Plotter()
   #plotter.add_mesh(mesh, scalars="temperature", cmap="RdYlBu_r")
