@@ -1,3 +1,4 @@
+from time import perf_counter
 import numpy as np
 
 class Element:
@@ -57,6 +58,7 @@ class Element:
       For multiple elements, array of the shape ``(n_cells, reference dim, physical dim)``.
     :rtype: numpy.ndarray
     """
+    t0 = perf_counter()
     GNi_idx = 'kj'
     xe_idx  = 'ki'
     J_idx   = 'ij'
@@ -67,6 +69,8 @@ class Element:
       GNi_idx = 'q'+GNi_idx
       J_idx   = 'q'+J_idx
     J = np.einsum(f'{GNi_idx},{xe_idx}->{J_idx}', GNi, xe)
+    t1 = perf_counter()
+    print(f"Computed Jacobian matrix of shape {J.shape} in {t1-t0:g} seconds")
     return J
   
   def evaluate_dNidx(self, invJ:np.ndarray, GNi:np.ndarray) -> np.ndarray:
@@ -209,11 +213,14 @@ class Element3D(Element):
     """
     if J.ndim < 2 or J.shape[-2:] != (3, 3):
       raise ValueError("J must have shape (..., 3, 3).")
+    t0 = perf_counter()
     detJ = (
       J[...,0,0]   * (J[...,1,1]*J[...,2,2] - J[...,1,2]*J[...,2,1])
       - J[...,0,1] * (J[...,1,0]*J[...,2,2] - J[...,1,2]*J[...,2,0])
       + J[...,0,2] * (J[...,1,0]*J[...,2,1] - J[...,1,1]*J[...,2,0])
     )
+    t1 = perf_counter()
+    print(f"Computed determinant of Jacobian matrix of shape {J.shape} in {t1-t0:g} seconds")
     return detJ
   
   def evaluate_invJ(self, J:np.ndarray, detJ:float|np.ndarray) -> np.ndarray:
@@ -230,6 +237,7 @@ class Element3D(Element):
     """
     if J.ndim < 2 or J.shape[-2:] != (3, 3):
       raise ValueError("J must have shape (..., 3, 3).")
+    t0 = perf_counter()
     invJ = np.zeros_like(J)
     invJ[...,0,0] =  (J[...,1,1]*J[...,2,2]-J[...,1,2]*J[...,2,1])
     invJ[...,0,1] = -(J[...,0,1]*J[...,2,2]-J[...,0,2]*J[...,2,1])
@@ -241,6 +249,8 @@ class Element3D(Element):
     invJ[...,2,1] = -(J[...,0,0]*J[...,2,1]-J[...,0,1]*J[...,2,0])
     invJ[...,2,2] =  (J[...,0,0]*J[...,1,1]-J[...,0,1]*J[...,1,0])
     invJ /= detJ[..., None, None]
+    t1 = perf_counter()
+    print(f"Computed inverse of Jacobian matrix of shape {J.shape} in {t1-t0:g} seconds")
     return invJ
   
 class SurfaceElement(Element):
