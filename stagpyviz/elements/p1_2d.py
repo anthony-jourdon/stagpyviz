@@ -40,10 +40,16 @@ class P1_2D(Element2D):
     :return: Array of shape ``(3,)`` containing the shape function values at the given reference coordinates.
     :rtype: numpy.ndarray
     """
-    Ni = np.zeros((self.basis_per_el),dtype=np.float64)
-    Ni[0] = 1.0 - xi[0] - xi[1]
-    Ni[1] = xi[0]
-    Ni[2] = xi[1]
+    if xi.ndim == 1:
+      Ni = np.zeros((self.basis_per_el),dtype=np.float64)
+      Ni[0] = 1.0 - xi[0] - xi[1]
+      Ni[1] = xi[0]
+      Ni[2] = xi[1]
+    elif xi.ndim == 2:
+      Ni = np.zeros((xi.shape[0], self.basis_per_el), dtype=np.float64)
+      Ni[:,0] = 1.0 - xi[:,0] - xi[:,1]
+      Ni[:,1] = xi[:,0]
+      Ni[:,2] = xi[:,1]
     return Ni
   
   def Ni_centroid(self):
@@ -115,10 +121,7 @@ class P1_2D_R3(SurfaceElement):
     Evaluate the shape functions at given reference coordinates :math:`\\xi = (\\xi, \\eta)`.
     See :py:meth:`evaluate_Ni <stagpyviz.P1_2D.evaluate_Ni>` for the shape function definitions.
     """
-    Ni = np.zeros((self.basis_per_el),dtype=np.float64)
-    Ni[0] = 1.0 - xi[0] - xi[1]
-    Ni[1] = xi[0]
-    Ni[2] = xi[1]
+    Ni = P1_2D.evaluate_Ni(self,xi)
     return Ni
   
   def Ni_centroid(self):
