@@ -97,6 +97,29 @@ class P1_2D(Element2D):
       [ 0.0,  1.0]
     ], dtype=np.float64)
     return GNi
+
+  def compute_area(self, xe:np.ndarray) -> np.ndarray:
+    """
+    Compute the area of the triangle defined by the coordinates of its vertices.
+    The area is computed using the formula:
+
+    .. math::
+      A = \\frac{1}{2} |\\det(J)|
+    
+    where :math:`J` is the Jacobian matrix of the transformation from the reference element 
+    to the physical element, evaluated at the element centroid.
+
+    :param numpy.ndarray xe: 
+      For a single element: array of shape ``(3, 2)`` containing the coordinates of the triangle vertices.
+      For multiple elements: array of shape ``(n_elements, 3, 2)`` containing the coordinates of the triangle vertices for each element.
+    :return: Area of the triangle(s).
+    :rtype: np.ndarray
+    """
+    GNi  = self.GNi_centroid()
+    J    = self.evaluate_Jacobian(GNi, xe)
+    detJ = self.evaluate_detJ(J)
+    area = 0.5 * np.abs(detJ)
+    return area
   
 class P1_2D_R3(SurfaceElement):
   """
@@ -150,3 +173,22 @@ class P1_2D_R3(SurfaceElement):
     See :py:meth:`GNi_centroid <stagpyviz.P1_2D.GNi_centroid>` for the shape function derivatives at the centroid.
     """
     return self.evaluate_GNi()
+  
+  def compute_area(self, xe:np.ndarray):
+    """
+    Compute the area of the triangle defined by the coordinates of its vertices.
+    The area is computed using the formula:
+
+    .. math::
+      A = \\frac{1}{2} |\\det(J)|
+    
+    where :math:`J` is the Jacobian matrix of the transformation from the reference element 
+    to the physical element, evaluated at the element centroid.
+
+    :param numpy.ndarray xe: 
+      For a single element: array of shape ``(3, 3)`` containing the coordinates of the triangle vertices.
+      For multiple elements: array of shape ``(n_elements, 3, 3)`` containing the coordinates of the triangle vertices for each element.
+    :return: Area of the triangle(s).
+    :rtype: np.ndarray
+    """
+    return P1_2D.compute_area(self, xe)
