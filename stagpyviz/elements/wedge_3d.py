@@ -210,21 +210,16 @@ class Wedge3D(Element3D):
     :rtype: float|np.ndarray
     """
     t0 = perf_counter()
-    w,qp = self.quadrature_rule_3x2()
-    nqp  = w.shape[0]
-    if xe.ndim == 2:
-      ncells = 1
-      volume = 0.0
-    elif xe.ndim == 3:
-      ncells = xe.shape[0]
-      volume = np.zeros((ncells), dtype=np.float64)
-    else:
-      raise ValueError(f"Input coordinates array xe must have shape (6, 3) for a single element or (number_of_cells, 6, 3) for multiple elements, got {xe.shape}")
-    for q in range(nqp):
-      GNi  = self.evaluate_GNi(qp[q])
-      J    = self.evaluate_Jacobian(GNi, xe)
-      detJ = self.evaluate_detJ(J)
-      volume += w[q] * np.abs(detJ)
+    
+    weights,qpoints = self.quadrature_rule_3x2()
+    nqp    = weights.shape[0]
+    ncells = xe.shape[0] if xe.ndim == 3 else 1
+
+    GNi  = self.evaluate_GNi(qpoints)
+    J    = self.evaluate_Jacobian(GNi, xe)
+    detJ = self.evaluate_detJ(J)
+    volume = np.einsum("q,qe->e", weights, np.abs(detJ))
+
     t1 = perf_counter()
     print(f"Computed the volume of {ncells} cells in {t1-t0:g} seconds using the 3x2 quadrature points rule")
     return volume
