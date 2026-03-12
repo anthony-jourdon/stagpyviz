@@ -158,6 +158,7 @@ class YinYangMesh(UnstructuredSphere):
     self._good_indices        = None
     self._points_per_layer    = None
     self._surface_mesh        = None
+    self._cells_volume        = None
     self.elements:Wedge3D = Wedge3D()
 
     self.yin, self.yang = self.reconstruct_yinyang()
@@ -656,6 +657,76 @@ class YinYangMesh(UnstructuredSphere):
     t1 = perf_counter()
     print(f"Gradient computation performed in {t1-t0:g} seconds")
     return grad_field
+
+  @property
+  def cells_volume(self) -> np.ndarray:
+    if self._cells_volume is None:
+      elidx = self.cell_connectivity.reshape((self.number_of_cells, self.elements.basis_per_el))
+      elcoords = self.points[ elidx, : ]
+      self._cells_volume = self.elements.compute_volume(elcoords,rule="1pt")
+    return self._cells_volume
+
+  def integrate_cell_field(self, field:np.ndarray) -> np.ndarray:
+    t0 = perf_counter()
+    if not self.is_cell_field(field):
+      raise ValueError(f"Field of shape {field.shape} must match number of cells {self.number_of_cells} to be integrated with integrate_cell_field()")
+    int_field = field * self.cells_volume
+    t1 = perf_counter()
+    print(f"Cell field integrated with 1 quadrature point rule in {t1-t0:g} seconds")
+    return int_field
+
+  def integrate_1pt_rule(self, field:np.ndarray) -> np.ndarray:
+    if self.is_cell_field(field):
+      return self.integrate_cell_field(field)
+    elif self.is_point_field(field):
+      t0 = perf_counter()
+      # Get the field values at the nodes of each element
+      elidx = self.cell_connectivity.reshape((self.number_of_cells, self.elements.basis_per_el))
+      Ni_centroid = self.elements.Ni_centroid()  # (nodes_per_el,)
+      field_el = field[ elidx ]  # (number_of_cells, nodes_per_el)
+      # Compute the average value of the field at the nodes of each element
+      field_centroid = np.einsum('k,ek->e', Ni_centroid, field_el)  # (number_of_cells,)
+      t1 = perf_counter()
+      print(f"Field values at element centroids computed in {t1-t0:g} seconds")
+      return self.integrate_cell_field(field_centroid)
+    else:
+      raise ValueError(f"Field of shape {field.shape} must be either a point field with shape ({self.number_of_points},) or a cell field with shape ({self.number_of_cells},) to be integrated with integrate_1pt_rule()")
+  
+  def integrate_3x2pt_rule(self, field:np.ndarray) -> np.ndarray:
+    t0 = perf_counter()
+    if not self.is_point_field(field):
+      raise ValueError(f"Field of shape {field.shape} must match number of points {self.number_of_points} to be integrated with integrate_3x2pt_rule()")
+    
+    elidx = self.cell_connectivity.reshape((self.number_of_cells, self.elements.basis_per_el))
+    # elements nodal values
+    el_field = field[ elidx ]
+    # elements nodes coords
+    elcoords = self.points[ elidx, : ]
+    # quadrature points and weights
+    weights,qpoints = self.elements.quadrature_rule_3x2()
+
+    Ni   = self.elements.evaluate_Ni(qpoints)
+    GNi  = self.elements.evaluate_GNi(qpoints)
+    J    = self.elements.evaluate_Jacobian(GNi, elcoords)
+    detJ = self.elements.evaluate_detJ(J)
+    int_field = np.einsum('q,qe,qk,ek->e', weights, np.abs(detJ), Ni, el_field)
+    
+    t1 = perf_counter()
+    print(f"Field integrated with 3x2 quadrature points rule in {t1-t0:g} seconds")
+    return int_field
+
+  def integrate_over_cell(self,field:np.ndarray,rule:str="1pt") -> np.ndarray:
+    if self.is_cell_field(field):
+      return self.integrate_1pt_rule(field)
+    elif self.is_point_field(field):
+      if rule == "1pt":
+        return self.integrate_1pt_rule(field)
+      elif rule == "3x2pt":
+        return self.integrate_3x2pt_rule(field)
+      else:
+        raise ValueError(f"Invalid integration rule {rule}. Supported rules are '1pt' and '3x2pt'")
+    else:
+      raise ValueError(f"Field of shape {field.shape} must be either a point field with shape ({self.number_of_points},) or a cell field with shape ({self.number_of_cells},) to be integrated with integrate_over_cell()")
 
 def test():
   import os
