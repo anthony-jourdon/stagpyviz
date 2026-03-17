@@ -7,7 +7,8 @@ setup(
   install_requires=[
     "numpy",
     "scipy",
-    "pyvista"
+    "pyvista",
+    "pint"
   ],
   author="Anthony Jourdon",
   description="A Python package for visualizing StagYY Yin-Yang models",
