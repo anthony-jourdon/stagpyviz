@@ -178,9 +178,11 @@ class Wedge3D(Element3D):
 
     where :math:`\\boldsymbol{J}` is the Jacobian matrix of the transformation from the reference element 
     to the physical element evaluated at the element centroid.
+
     :param numpy.ndarray xe: 
       For a single element: array of shape ``(6, 3)`` containing the coordinates of the wedge vertices.
-      For multiple elements: array of shape ``(number_of_cells, 6, 3)`` containing the coordinates of the wedge vertices for each element.
+      For multiple elements: array of shape ``(number_of_cells, 6, 3)`` 
+      containing the coordinates of the wedge vertices for each element.
     :return: Volume of the element(s).
     :rtype: float|np.ndarray
     """
@@ -203,6 +205,7 @@ class Wedge3D(Element3D):
 
     where :math:`\\boldsymbol{J}` is the Jacobian matrix of the transformation from the reference element 
     to the physical element evaluated at the element centroid.
+
     :param numpy.ndarray xe: 
       For a single element: array of shape ``(6, 3)`` containing the coordinates of the wedge vertices.
       For multiple elements: array of shape ``(number_of_cells, 6, 3)`` containing the coordinates of the wedge vertices for each element.
