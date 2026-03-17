@@ -49,32 +49,32 @@ def scaling_factors(**kwargs) -> dict[str, Scaling]:
   scalings = {
     "temperature": Scaling(
       name="temperature",
-      factor=kwargs.get("temperature_factor", 2700.0),
+      factor=float(kwargs.get("temperature_factor", 2700.0)),
       unit=kwargs.get("temperature_unit", "K")
     ),
     "length": Scaling(
       name="length",
-      factor=kwargs.get("length_factor", 2.89e6),
+      factor=float(kwargs.get("length_factor", 2.89e6)),
       unit=kwargs.get("length_unit", "m")
     ),
     "diffusivity": Scaling(
       name="diffusivity",
-      factor=kwargs.get("diffusivity_factor", 1e-6),
+      factor=float(kwargs.get("diffusivity_factor", 1e-6)),
       unit=kwargs.get("diffusivity_unit", "m**2/s")
     ),
     "expansion": Scaling(
       name="expansion",
-      factor=kwargs.get("expansion_factor", 3e-5),
+      factor=float(kwargs.get("expansion_factor", 3e-5)),
       unit=kwargs.get("expansion_unit", "1/K")
     ),
     "gravity": Scaling(
       name="gravity",
-      factor=kwargs.get("gravity_factor", 9.81),
+      factor=float(kwargs.get("gravity_factor", 9.81)),
       unit=kwargs.get("gravity_unit", "m/s**2")
     ),
     "density": Scaling(
       name="density",
-      factor=kwargs.get("density_factor", 3300.0),
+      factor=float(kwargs.get("density_factor", 3300.0)),
       unit=kwargs.get("density_unit", "kg/m**3")
     )
   }
@@ -96,7 +96,7 @@ def scaling_factors(**kwargs) -> dict[str, Scaling]:
   eta_0 = (
     scalings["density"].factor * scalings["gravity"].factor * scalings["expansion"].factor *
     scalings["temperature"].factor * scalings["length"].factor**3 /
-    (kwargs.get("Ra", 1.0e7) * scalings["diffusivity"].factor)
+    (float(kwargs.get("Ra", 1.0e7)) * scalings["diffusivity"].factor)
   )
   eta_u = (
     scalings["density"].unit * scalings["gravity"].unit * scalings["expansion"].unit *
@@ -104,13 +104,13 @@ def scaling_factors(**kwargs) -> dict[str, Scaling]:
   )
   scalings["viscosity"] = Scaling(
     name="viscosity",
-    factor=kwargs.get("viscosity_factor", eta_0),
+    factor=float(kwargs.get("viscosity_factor", eta_0)),
     unit=kwargs.get("viscosity_unit", eta_u)
   )
   scalings["pressure"] = Scaling(
     name="pressure",
-    factor=kwargs.get("pressure_factor", scalings["viscosity"].factor / scalings["time"].factor),
-    unit=kwargs.get("pressure_unit", scalings["viscosity"].unit / scalings["time"].unit)
+    factor=scalings["viscosity"].factor / scalings["time"].factor,
+    unit=scalings["viscosity"].unit / scalings["time"].unit
   )
   scalings["strain_rate"] = Scaling(
     name="strain_rate",

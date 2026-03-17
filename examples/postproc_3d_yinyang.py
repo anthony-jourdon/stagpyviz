@@ -127,7 +127,7 @@ def process_step_range(mesh:spv.YinYangMesh, io_utils:spv.IOutils, class_fields:
       io_utils.timeseries["step"].append(str(step).zfill(5))
   return
 
-def process_model(iou:spv.IOutils) -> None:
+def process_model(iou:spv.IOutils, scaling_factors:dict[str, spv.Scaling]) -> None:
   if iou.step is None:
     iou.step = iou.step_start
     if iou.step_end is None:
@@ -140,10 +140,10 @@ def process_model(iou:spv.IOutils) -> None:
   # Generate the mesh
   fname = f"{iou.model}_{iou.filelist[iou.output_fields[0]]}{str(iou.step).zfill(5)}"
   print(f"Generating volume mesh using file {fname}...")
-  mesh = spv.YinYangMesh(os.path.join(iou.model_dir,fname))
+  mesh = spv.YinYangMesh(os.path.join(iou.model_dir,fname),scaling=scaling_factors.get("length", None))
   # create the available class instances for the fields that can be added to the mesh
   #class_fields = class_instances(mesh, iou)
-  class_fields = spv.fields_instances(iou, mesh)
+  class_fields = spv.fields_instances(iou, mesh, scaling_factors)
 
   match use_case:
     case "single_step":
@@ -280,6 +280,19 @@ def main():
       start_step = int(timeseries["step"][-1]) + 1
       print(f"Updated start step to {start_step} based on existing pvd file.")
 
+  scaling_factors = {}
+  if "scaling" in user:
+    scaling:dict = user["scaling"]
+    if scaling.get("scale", False):
+      Ra = scaling.get("Ra", 1e7)
+      scaling.pop("Ra")
+      scaling.pop("scale")
+      scaling_kwargs = {"Ra": Ra}
+      for key in scaling:
+        for subkey in scaling[key]:
+          scaling_kwargs[key+"_"+subkey] = scaling[key][subkey]
+      scaling_factors = spv.scaling_factors(**scaling_kwargs)
+
   io_utils = spv.IOutils(
     model_name=paths["model"],
     model_dir=paths["directory"],
@@ -296,7 +309,7 @@ def main():
     reset_fields=reset,
     prefix=prefix,
   )
-  process_model(io_utils)
+  process_model(io_utils,scaling_factors)
   exit(0)
 
 def test():
