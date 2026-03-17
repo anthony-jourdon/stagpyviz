@@ -7,9 +7,11 @@ from scipy.spatial import ConvexHull
 try:
   from ..elements.p1_2d import P1_2D_R3
   from .spherical_3d import UnstructuredSphere
+  from ..scaling import Scaling
 except ImportError:
   from stagpyviz.elements.p1_2d import P1_2D_R3
   from stagpyviz.mesh.spherical_3d import UnstructuredSphere
+  from stagpyviz.scaling import Scaling
 
 class ShellMesh(UnstructuredSphere):
   """
@@ -77,6 +79,9 @@ class ShellMesh(UnstructuredSphere):
   def __init__(self, *args, deep:bool=False, **kwargs):
     self.elements:P1_2D_R3 = P1_2D_R3()
     self._cells_area = None
+    self.scaling:Scaling|None = kwargs.get("scaling", None)
+    if "scaling" in kwargs:
+      kwargs.pop("scaling")
 
     # Check if user provided a VTU file to load the mesh from
     if len(args) == 1 and isinstance(args[0], (Path, str)):
@@ -104,6 +109,8 @@ class ShellMesh(UnstructuredSphere):
       # Create a convex hull to define the surface mesh
       hull = ConvexHull(points)
       oriented_elidx = self._orient_triangles(hull.simplices, points).reshape((hull.simplices.shape[0]*3))
+      if self.scaling is not None:
+        points = self.scaling.dim(points)
       super().__init__({pvs.CellType.TRIANGLE: oriented_elidx}, points)
       self.cell_data["neighbors"] = hull.neighbors
       t1 = perf_counter()
@@ -161,7 +168,7 @@ class ShellMesh(UnstructuredSphere):
       self._cells_area = self.elements.compute_area(el_coords)
     return self._cells_area
 
-  def integrate_per_cell(self, field:np.ndarray) -> np.ndarray:
+  def integrate_over_cell(self, field:np.ndarray) -> np.ndarray:
     """
     Compute the numerical integral of a field over each cell of the mesh using a 1 point quadrature rule.
     The field can be either a point field (defined at mesh points) or a cell field (defined at mesh cells). 
