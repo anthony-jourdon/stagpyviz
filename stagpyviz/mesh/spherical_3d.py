@@ -178,7 +178,11 @@ class UnstructuredSphere(pvs.UnstructuredGrid):
   @property
   def centroids(self) -> np.ndarray:
     if self._centroids is None:
-      self._centroids = self.cell_centers().points
+      elidx = self.cell_connectivity.reshape((self.number_of_cells, self.elements.basis_per_el))
+      elcoords = self.points[elidx, :]
+      Ni_centroid = self.elements.Ni_centroid()
+      self._centroids = np.einsum('k,eki->ei',Ni_centroid,elcoords)
+      #self.cell_centers().points
     return self._centroids
 
   @property
@@ -302,73 +306,3 @@ class UnstructuredSphere(pvs.UnstructuredGrid):
     t1 = perf_counter()
     print(f"spherical to cartesian vector transformation performed in {t1-t0:g} seconds")
     return v_cartesian
-  
-  def Jacobian_matrix(self, r:np.ndarray, theta:np.ndarray, phi:np.ndarray) -> np.ndarray:
-    """
-    Evaluate the Jacobian matrix for Cartesian - Spherical gradients transformations at given 
-    radial (:math:`r`), colatitude (:math:`\\theta`) and longitude (:math:`\\phi`) coordinates such that:
-
-    .. math::
-      \\boldsymbol{J} = \\begin{bmatrix}
-        \\sin(\\theta) \\cos(\\phi) & r \\cos(\\theta) \\cos(\\phi) & -r \\sin(\\theta) \\sin(\\phi) \\\\
-        \\sin(\\theta) \\sin(\\phi) & r \\cos(\\theta) \\sin(\\phi) & r \\sin(\\theta) \\cos(\\phi) \\\\
-        \\cos(\\theta) & -r \\sin(\\theta) & 0
-      \\end{bmatrix}
-
-    :param numpy.ndarray r: The radial coordinates.
-    :param numpy.ndarray theta: The colatitude coordinates (angle from the :math:`z`-axis).
-    :param numpy.ndarray phi: The longitude coordinates (angle from the :math:`x`-axis in the :math:`xy`-plane).
-    :return: 
-      The Jacobian matrix for Cartesian - Spherical gradients transformations at the given coordinates. 
-      Shape is ``(N, 3, 3)`` where N is the length of the input coordinate arrays.
-    :rtype: numpy.ndarray
-    """
-    J = np.zeros( (r.shape[0], 3,3), dtype=np.float64 )
-    J[:,0,0] = np.sin(theta)*np.cos(phi)
-    J[:,0,1] = r*np.cos(theta)*np.cos(phi)
-    J[:,0,2] = -r*np.sin(theta)*np.sin(phi)
-
-    J[:,1,0] = np.sin(theta)*np.sin(phi)
-    J[:,1,1] = r*np.cos(theta)*np.sin(phi)
-    J[:,1,2] = r*np.sin(theta)*np.cos(phi)
-
-    J[:,2,0] = np.cos(theta)
-    J[:,2,1] = -r*np.sin(theta)
-    J[:,2,2] = 0.0
-    return J
-
-  def spherical_gradient(self,cartesian_gradient:np.ndarray) -> np.ndarray:
-    """
-    Transform a gradient field from Cartesian to Spherical coordinates such that:
-
-    .. math::
-      (\\nabla \\varphi)_{r} = \\boldsymbol{J} (\\nabla \\varphi)_{x}
-
-    where :math:`(\\nabla \\varphi)_{r}` is the gradient field in spherical coordinates,
-    :math:`(\\nabla \\varphi)_{x}` is the gradient field in Cartesian coordinates,
-    and :math:`\\boldsymbol{J}` is the Jacobian matrix of the transformomation between 
-    Cartesian and Spherical coordinates for gradients (see :py:meth:`Jacobian_matrix <stagpyviz.UnstructuredSphere.Jacobian_matrix>`).
-
-    .. note::
-      The transformation for gradients is different from the transformation for vectors, 
-      as it involves the Jacobian matrix instead of the rotation matrix.
-
-    :param numpy.ndarray cartesian_gradient: The gradient field in Cartesian coordinates.
-    :return: The gradient field in Spherical coordinates.
-    :rtype: numpy.ndarray
-    """
-    t0 = perf_counter()
-    if self.is_point_field(cartesian_gradient):
-      coords = self.points_spherical
-    elif self.is_cell_field(cartesian_gradient):
-      coords = self.centroids_spherical
-    else:
-      raise ValueError(f"Input gradient field has incompatible shape. Mesh ncells: {self.number_of_cells}, npoints: {self.number_of_points}, field shape: {cartesian_gradient.shape}")
-    r     = coords[:,0]
-    theta = coords[:,1]
-    phi   = coords[:,2]
-    J = self.Jacobian_matrix(r, theta, phi)
-    sph_grad = np.einsum('eji,ej->ei', J, cartesian_gradient)
-    t1 = perf_counter()
-    print(f"Spherical gradient transformation performed in {t1-t0:g} seconds")
-    return sph_grad
