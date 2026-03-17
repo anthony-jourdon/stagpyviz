@@ -7,6 +7,22 @@ from pint import Unit, Quantity
 import numpy as np
 
 class Scaling:
+  """
+  Class representing a scaling factor for a physical field, including its name, value and unit.
+  The class provides methods to convert between dimensional and adimensional values, 
+  as well as to convert between different units of the same field using the python package 
+  `pint`_ for unit conversions.
+
+  :param str name: Name of the physical field being scaled (e.g. ``"temperature"``, ``"length"``, etc.)
+  :param float factor: Scaling factor for the physical field
+  :param str|pint.Unit|None unit: 
+    Unit of the physical field (optional), 
+    see `pint`_ documentation for supported units. 
+    If not provided, the unit will be set to None.
+  
+  :Methods:
+
+  """
   def __init__(self, name:str, factor:float, unit:str|Unit|None=None):
     self.name:str       = name
     self.factor:float   = factor
@@ -29,17 +45,75 @@ class Scaling:
     return s
 
   def dim(self, field:np.ndarray) -> np.ndarray:
+    """
+    Scale a non-dimensional field to dimensional using the scaling factor.
+    """
     return field * self.factor
   
   def a_dim(self, field:np.ndarray) -> np.ndarray:
+    """
+    Scale a dimensional field to non-dimensional using the scaling factor.
+    """
     return field / self.factor
   
   def to(self, field:np.ndarray, unit:str|Unit) -> np.ndarray:
+    """
+    Convert a dimensional field to a different unit using the `pint`_ package for unit conversions.
+
+    .. warning::
+      Units must be compatible for conversion, 
+      i.e. they must represent the same physical quantity 
+      (e.g. ``"K"`` and ``"degC"`` are compatible, but ``"K"`` and ``"m"`` are not).
+    
+    """
     q:Quantity = units.Quantity(field, self.unit)
     q = q.to(unit)
     return q.magnitude
   
+  def to_base(self, field:np.ndarray, unit:str|Unit) -> np.ndarray:
+    """
+    Convert a dimensional field from a given unit to the base unit 
+    of the scaling factor using the `pint`_ package for unit conversions.
+
+    .. warning::
+      Units must be compatible for conversion, 
+      i.e. they must represent the same physical quantity 
+      (e.g. ``"K"`` and ``"degC"`` are compatible, but ``"K"`` and ``"m"`` are not).
+    
+    """
+    q:Quantity = units.Quantity(field, unit)
+    q = q.to(self.unit)
+    return q.magnitude
+  
 def scaling_factors(**kwargs) -> dict[str, Scaling]:
+  """
+  Function to create a dictionary of Scaling instances for different physical fields,
+  based on the provided keyword arguments. The function calculates the scaling factors
+  for temperature, length, diffusivity, expansion, gravity, density, time, velocity,
+  heat source, viscosity and pressure based on the provided values and / or the Rayleigh number (Ra).
+
+  :param kwargs: Keyword arguments to specify the scaling factors for different fields.
+    The following keyword arguments are supported (other quantities are derived from these):
+
+    - ``Ra``: Rayleigh number (default: 1e7)
+    - ``temperature_factor``: Scaling factor for temperature (default: 2700.0 K)
+    - ``temperature_unit``: Unit for temperature (default: "K")
+    - ``length_factor``: Scaling factor for length (default: 2.89e6 m)
+    - ``length_unit``: Unit for length (default: "m")
+    - ``diffusivity_factor``: Scaling factor for diffusivity (default: 1e-6 m^2/s)
+    - ``diffusivity_unit``: Unit for diffusivity (default: "m**2/s")
+    - ``expansion_factor``: Scaling factor for thermal expansion coefficient (default: 3e-5 1/K)
+    - ``expansion_unit``: Unit for thermal expansion coefficient (default: "1/K")
+    - ``gravity_factor``: Scaling factor for gravity (default: 9.81 m/s**2)
+    - ``gravity_unit``: Unit for gravity (default: "m/s**2")
+    - ``density_factor``: Scaling factor for density (default: 3300.0 kg/m**3)
+    - ``density_unit``: Unit for density (default: "kg/m**3")
+    - ``viscosity_factor``: Scaling factor for viscosity (default: calculated from Ra if not provided)
+    - ``viscosity_unit``: Unit for viscosity (default: calculated from Ra if not provided)
+
+  :return: Dictionary of Scaling instances for different physical fields.
+  :rtype: dict[str, Scaling]
+  """
   if "Ra" not in kwargs:
     s = "Warning: Rayleigh number (Ra) not provided.\n"
     s += "Using default value of 1e7 for viscosity scaling.\n"

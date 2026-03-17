@@ -74,7 +74,8 @@ class ShellMesh(UnstructuredSphere):
 
     :type: numpy.ndarray
 
-
+  :Methods:
+  
   """
   def __init__(self, *args, deep:bool=False, **kwargs):
     self.elements:P1_2D_R3 = P1_2D_R3()

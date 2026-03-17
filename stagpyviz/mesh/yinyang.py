@@ -47,7 +47,8 @@ class YinYangMesh(UnstructuredSphere):
   The mesh can be generated directly from the raw binary file or from a VTU file containing the mesh and the fields.
 
   :param pathlib.Path|str rawbin: The path to the raw binary file containing the Yin-Yang grid (output of StagYY)
-
+  :param Scaling scaling: Scaling object containing the scaling factors and units to apply to the coordinates of the points in the mesh.
+  
   :Attributes:
 
   .. py:attribute:: yin
