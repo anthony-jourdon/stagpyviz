@@ -1,9 +1,9 @@
 paths:
-  model: "llsvp"
-  directory: "Run-llsvp"
+  model: "PJB6_YS1_Rh32"
+  directory: "StagYY"
   base: 
-    model: "/data/ens/ncoltice/CLAUDIO" # Absolute path to directory containing the model directory
-    output: "/data/jourdon/llsvp-pandora-vtu/surface-yy" # Absolute path to directory where output directory will be created, we append the model directory name
+    model: "/mnt/c/Users/jourdon/Documents/Scripts/PostProc" # Absolute path to directory containing the model directory
+    output: "/mnt/c/Users/jourdon/Documents/Scripts/PostProc" # Absolute path to directory where output directory will be created, we append the model directory name
   # optional
   #pvd: "name.pvd" # if not given, will be attributed a default name based on model
   #prefix: "prefix" # put here any prefix name you want to add to the output files
@@ -15,18 +15,18 @@ fields:
   process: # fields that will be processed and added to the mesh
     - "velocity"
     - "velocity_r"
-    - "e2"
+    #- "e2"
     - "temperature"
-    - "divergence"
-    - "composition"
-    - "primordial"
-    - "proterozoic"
-    - "viscosity"
-    #- "grad_T"
-    #- "grad_T_r"
+    #- "divergence"
+    #- "composition"
+    #- "primordial"
+    #- "proterozoic"
+    #- "viscosity"
+    - "grad_T"
+    - "grad_T_r"
     #- "stress"
     #- "pressure"
-    - "nrc" #??? don't know what is this field
+    #- "nrc" #??? don't know what is this field
     #- "vorticity"
   
   regions:
@@ -47,7 +47,7 @@ steps:
 
   # starting step: note that if a pvd file already exists in the output directory, 
   # the starting step will be updated to the last step found in the pvd file + 1.
-  start: 0
+  start: 39
 
   # end step: if given we process steps from start to end, if not given we process all steps starting from start
   #end: 3
