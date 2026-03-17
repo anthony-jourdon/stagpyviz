@@ -10,11 +10,13 @@ try:
   from ..elements.wedge_3d import Wedge3D
   from .spherical_3d import UnstructuredSphere
   from .shell import ShellMesh
+  from ..scaling import Scaling
 except ImportError:
   from stagpyviz.parsers import BinHeader64, BinHeader, read_stag_bin
   from stagpyviz.elements.wedge_3d import Wedge3D
   from stagpyviz.mesh.spherical_3d import UnstructuredSphere
   from stagpyviz.mesh.shell import ShellMesh
+  from stagpyviz.scaling import Scaling
 
 class YinYangMesh(UnstructuredSphere):
   """
@@ -153,13 +155,16 @@ class YinYangMesh(UnstructuredSphere):
     # Read the binary file to extract information about the grid
     self.header, _ = read_stag_bin(rawbin)
     
-    self.yin                  = None
-    self.yang                 = None
-    self._good_indices        = None
-    self._points_per_layer    = None
-    self._surface_mesh        = None
-    self._cells_volume        = None
-    self.elements:Wedge3D = Wedge3D()
+    self.yin:dict|None                 = None
+    self.yang:dict|None                = None
+    self._good_indices:np.ndarray|None = None
+    self._points_per_layer:int|None    = None
+    self._surface_mesh:ShellMesh|None  = None
+    self._cells_volume:np.ndarray|None = None
+    self.scaling:Scaling|None          = kwargs.get("scaling", None)
+    self.elements:Wedge3D              = Wedge3D()
+    if "scaling" in kwargs:
+      kwargs.pop("scaling")
 
     self.yin, self.yang = self.reconstruct_yinyang()
     self.reshape_YY_radially()
@@ -411,7 +416,7 @@ class YinYangMesh(UnstructuredSphere):
     Z[:,ppl:2*ppl] = self.yang["z"].T
 
     points = np.array([X[n[2]-1,:], Y[n[2]-1,:], Z[n[2]-1,:]]).T
-    self._surface_mesh = ShellMesh(points)
+    self._surface_mesh = ShellMesh(points, scaling=self.scaling)
     return 
 
   def construct_mesh(self):
@@ -452,6 +457,8 @@ class YinYangMesh(UnstructuredSphere):
     points[ppl*n[2]:2*ppl*n[2], 1] = self.yang["y"].reshape((ppl*n[2]),order='F')
     points[ppl*n[2]:2*ppl*n[2], 2] = self.yang["z"].reshape((ppl*n[2]),order='F')
     # create the UnstructuredGrid
+    if self.scaling is not None:
+      points = self.scaling.dim(points)
     super().__init__({pvs.CellType.WEDGE: elidx}, points)
     return
   
@@ -652,8 +659,7 @@ class YinYangMesh(UnstructuredSphere):
     dNdx = self.elements.evaluate_dNidx(invJ, GNi)  # (number_of_cells, nodes_per_el, 3)
     # Gather field values at element nodes
     field_el = field[ elidx ]  # (number_of_cells, nodes_per_el)
-    # Compute gradient at element centroids
-    grad_field = np.einsum('eki,ek->ei', dNdx, field_el)
+    grad_field = np.einsum('eki,ek...->ei...', dNdx, field_el)
     t1 = perf_counter()
     print(f"Gradient computation performed in {t1-t0:g} seconds")
     return grad_field
