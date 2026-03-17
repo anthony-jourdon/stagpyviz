@@ -41,6 +41,7 @@ include_patterns = ['**',
 
 rst_prolog = """
 .. _pyvista.UnstructuredGrid: https://docs.pyvista.org/api/core/_autosummary/pyvista.unstructuredgrid
+.. _pint: https://pint.readthedocs.io/en/stable/
 """
 
 # -- Options for HTML output -------------------------------------------------

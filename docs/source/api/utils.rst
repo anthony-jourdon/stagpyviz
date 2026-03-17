@@ -15,3 +15,9 @@ Timeseries
 .. autofunction:: stagpyviz.timeseries_append
 
 .. autofunction:: stagpyviz.timeseries_write
+
+I/O
+---
+
+.. autoclass:: stagpyviz.IOutils
+  :members:

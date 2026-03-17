@@ -17,9 +17,11 @@ Contents
   api/mesh
   api/parsers
   api/utils
+  api/scaling
 
 .. toctree::
   :maxdepth: 1
   :caption: Usage:
 
   usage/postproc_yy
+  usage/scaling_nondim

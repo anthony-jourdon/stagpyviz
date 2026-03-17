@@ -180,7 +180,41 @@ the already existing pvd file, the user can use:
     start: 0 # any integer step number to start processing
     reset: true
 
-4. A complete example
+4. Scaling
+----------
+For models ran with non-dimensional parameters, the user can provide scaling information in the 
+configuration file to write the output files in dimensional units.
+The scaling information is provided in the ``scaling`` section of the configuration file as follows:
+
+.. code-block:: yaml
+
+  scaling:
+
+    scale: true
+    Ra: 1e7
+    temperature:
+      factor: 2700.0
+      unit: "K"
+    length:
+      factor: 2.89e6
+      unit: "m"
+    diffusivity:
+      factor: 1e-6
+      unit: "m**2/s"
+    expansion:
+      factor: 3e-5
+      unit: "1/K"
+    gravity:
+      factor: 9.81
+      unit: "m/s**2"
+    density:
+      factor: 3300
+      unit: "kg/m**3"
+
+If ``scale`` is set to true but nothing else is provided, a default value of ``Ra = 1e7``
+and default values for the scaling factors and units of the different fields will be used.
+
+5. A complete example
 ---------------------
 Here is a complete example of a configuration file for the script:
 
@@ -215,7 +249,29 @@ Here is a complete example of a configuration file for the script:
     delta: 1
     reset: true
 
-5. Running the script
+  scaling:
+    scale: true
+    Ra: 1e7
+    temperature:
+      factor: 2700.0
+      unit: "K"
+    length:
+      factor: 2.89e6
+      unit: "m"
+    diffusivity:
+      factor: 1e-6
+      unit: "m**2/s"
+    expansion:
+      factor: 3e-5
+      unit: "1/K"
+    gravity:
+      factor: 9.81
+      unit: "m/s**2"
+    density:
+      factor: 3300
+      unit: "kg/m**3"
+
+6. Running the script
 ----------------------
 To run the script, simply execute the following command in the terminal:
 
