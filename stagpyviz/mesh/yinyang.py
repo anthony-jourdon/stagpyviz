@@ -156,14 +156,15 @@ class YinYangMesh(UnstructuredSphere):
     # Read the binary file to extract information about the grid
     self.header, _ = read_stag_bin(rawbin)
     
-    self.yin:dict|None                 = None
-    self.yang:dict|None                = None
-    self._good_indices:np.ndarray|None = None
-    self._points_per_layer:int|None    = None
-    self._surface_mesh:ShellMesh|None  = None
-    self._cells_volume:np.ndarray|None = None
-    self.scaling:Scaling|None          = kwargs.get("scaling", None)
-    self.elements:Wedge3D              = Wedge3D()
+    self.yin:dict|None                   = None
+    self.yang:dict|None                  = None
+    self._good_indices:np.ndarray|None   = None
+    self._points_per_layer:int|None      = None
+    self._surface_mesh:ShellMesh|None    = None
+    self._cells_volume:np.ndarray|None   = None
+    self.scaling:Scaling|None            = kwargs.get("scaling", None)
+    self.elements:Wedge3D                = Wedge3D()
+    self._cells_Jacobian:np.ndarray|None = None
     if "scaling" in kwargs:
       kwargs.pop("scaling")
 
@@ -634,7 +635,17 @@ class YinYangMesh(UnstructuredSphere):
     for key in fields.keys():
       self.add_field(key, fields[key])
     return
-  
+
+  @property
+  def cells_Jacobian(self) -> np.ndarray:
+    if self._cells_Jacobian is None:
+      elidx = self.cell_connectivity.reshape((self.number_of_cells, self.nodes_per_el))
+      elcoords = self.points[ elidx, : ]  # (number_of_cells, nodes_per_el, 3)
+      GNi = self.elements.GNi_centroid()
+      J = self.elements.evaluate_Jacobian(GNi, elcoords)  # (number_of_cells, 3, 3)
+      self._cells_Jacobian = J
+    return self._cells_Jacobian
+
   def compute_gradient(self, field:np.ndarray) -> np.ndarray:
     """
     Compute the Cartesian gradient of a scalar field defined on the mesh 
@@ -652,12 +663,11 @@ class YinYangMesh(UnstructuredSphere):
     """
     t0 = perf_counter()
     elidx = self.cell_connectivity.reshape((self.number_of_cells, self.nodes_per_el))
-    elcoords = self.points[ elidx, : ]  # (number_of_cells, nodes_per_el, 3)
-    GNi = self.elements.GNi_centroid()
-    J = self.elements.evaluate_Jacobian(GNi, elcoords)  # (number_of_cells, 3, 3)
-    detJ = self.elements.evaluate_detJ(J)
-    invJ = self.elements.evaluate_invJ(J, detJ)
-    dNdx = self.elements.evaluate_dNidx(invJ, GNi)  # (number_of_cells, nodes_per_el, 3)
+    GNi   = self.elements.GNi_centroid()
+    J     = self.cells_Jacobian  # (number_of_cells, 3, 3)
+    detJ  = self.elements.evaluate_detJ(J)
+    invJ  = self.elements.evaluate_invJ(J, detJ)
+    dNdx  = self.elements.evaluate_dNidx(invJ, GNi)  # (number_of_cells, nodes_per_el, 3)
     # Gather field values at element nodes
     field_el = field[ elidx ]  # (number_of_cells, nodes_per_el)
     grad_field = np.einsum('eki,ek...->ei...', dNdx, field_el)
