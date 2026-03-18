@@ -18,6 +18,7 @@ Contents
   api/parsers
   api/utils
   api/scaling
+  api/fields
 
 .. toctree::
   :maxdepth: 1
