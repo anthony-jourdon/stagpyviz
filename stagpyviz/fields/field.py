@@ -391,11 +391,11 @@ class SphericalVectorGradient(DerivedField):
     field_spherical = self.mesh.vector_cartesian_to_spherical(field)
     # Then we compute the gradient of the spherical vector field in cartesian coordinates
     grad_x_fs = self.mesh.compute_gradient(field_spherical)
-    grad_x_fs.shape = (self.mesh.number_of_cells, 9)
+    bs = grad_x_fs.shape[-1]
     # Finally we convert the gradient of the vector field from Cartesian to spherical coordinates
     self.values = np.zeros_like(grad_x_fs)
-    for b in range(3):
-      self.values[:,3*b:3*b+3] = self.mesh.vector_cartesian_to_spherical(grad_x_fs[:,3*b:3*b+3])
+    for b in range(bs):
+      self.values[...,b] = self.mesh.vector_cartesian_to_spherical(grad_x_fs[...,b])
     return self.values
 
 def fields_instances(io_utils:IOutils, mesh:YinYangMesh, scalings:dict[str, Scaling]={}) -> dict[str, StagField]:
