@@ -147,6 +147,14 @@ class YinYangMesh(UnstructuredSphere):
     :type: numpy.ndarray
     :canonical: stagpyviz.YinYangMesh.surface_cells
 
+  .. py:attribute:: cells_Jacobian
+
+    3D array of shape ``(number_of_cells, 3, 3)`` containing the Jacobian matrices 
+    of the transformation from the reference element to the physical element for each cell in the mesh.
+
+    :type: numpy.ndarray
+    :canonical: stagpyviz.YinYangMesh.cells_Jacobian
+
   :Methods:
 
   """
@@ -301,6 +309,13 @@ class YinYangMesh(UnstructuredSphere):
   def reshape_radially(self,field:np.ndarray) -> np.ndarray:
     """
     Reshape a field defined on the Yin or Yang grid into a 2D array of shape ``(points_per_layer, n_radial_layers)``.
+    
+    :param numpy.ndarray field: 
+      1D array of shape ``(npoints,)`` containing the values of the field defined on the Yin or Yang grid.
+    :return:
+      2D array of shape ``(points_per_layer, n_radial_layers)`` containing the 
+      values of the field reshaped radially.
+    :rtype: numpy.ndarray
     """
     ppl = self.points_per_layer
     n   = self.grid_dimensions
@@ -350,7 +365,8 @@ class YinYangMesh(UnstructuredSphere):
       Should never be outside of the range [0, n-1] where n is the number 
       of radial layers in the grid (:py:attr:`grid_dimensions[2]`).
     :return:
-      A 1D array of shape (2*:py:attr:`points_per_layer`,) containing the indices of the points in the k-th radial layer of both grids.
+      A 1D array of shape (2*:py:attr:`points_per_layer`,) 
+      containing the indices of the points in the k-th radial layer of both grids.
     :rtype: numpy.ndarray
     """
     n   = self.grid_dimensions
@@ -863,6 +879,21 @@ class YinYangMesh(UnstructuredSphere):
         raise ValueError(f"Invalid integration rule {rule}. Supported rules are '1pt' and '3x2pt'")
     else:
       raise ValueError(f"Field of shape {field.shape} must be either a point field with shape ({self.number_of_points},) or a cell field with shape ({self.number_of_cells},) to be integrated with integrate_over_cell()")
+
+  def cell_data_to_point_data(self, pass_cell_data:bool=False) -> None:
+    """
+    Convert cell data to point data on the mesh.
+    
+    :param bool pass_cell_data:
+      If True, the cell data will be kept in the mesh after conversion.
+      If False, the cell data will be removed from the mesh after conversion.
+    """
+    point_mesh = super().cell_data_to_point_data()
+    for f in point_mesh.point_data:
+      if pass_cell_data == False and f in self.cell_data:
+        self.cell_data.pop(f)
+      self.point_data[f] = point_mesh.point_data[f]
+    return
 
 def test():
   import os
