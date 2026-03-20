@@ -342,12 +342,23 @@ class CartesianGradient(DerivedField):
   
 class SphericalVectorGradient(DerivedField):
   """
-  Class to compute and add to the mesh the gradient of a vector field in spherical coordinates.
+  Class to compute and add to the mesh the gradient of a vector field in spherical coordinates
+  with respect to spherical coordinates i.e.:
+  
+  .. math::
+    \\nabla_{\\mathbf r} \\mathbf u = 
+    \\begin{bmatrix}
+      \\partial_r u_r & \\partial_r u_{\\theta} & \\partial_r u_{\\phi} \\\\
+      \\partial_{\\theta} u_r & \\partial_{\\theta} u_{\\theta} & \\partial_{\\theta} u_{\\phi} \\\\
+      \\partial_{\\phi} u_r & \\partial_{\\phi} u_{\\theta} & \\partial_{\\phi} u_{\\phi} \\\\
+    \\end{bmatrix}
+
   It proceeds in three steps:
 
   1.
     It transforms the vector field from Cartesian to spherical coordinates using the 
-    :py:meth:`vector_cartesian_to_spherical <stagpyviz.UnstructuredSphere.vector_cartesian_to_spherical>` method of the mesh.
+    :py:meth:`vector_cartesian_to_spherical <stagpyviz.UnstructuredSphere.vector_cartesian_to_spherical>` 
+    method of the mesh.
   
   2.
     It computes the gradient of the spherical vector field in Cartesian coordinates using the 
@@ -355,7 +366,8 @@ class SphericalVectorGradient(DerivedField):
   
   3.
     It transforms the gradient of the vector field from Cartesian to spherical coordinates using the 
-    :py:meth:`vector_cartesian_to_spherical <stagpyviz.UnstructuredSphere.vector_cartesian_to_spherical>` method of the mesh.
+    :py:meth:`vector_cartesian_to_spherical <stagpyviz.UnstructuredSphere.vector_cartesian_to_spherical>` 
+    method of the mesh.
   
   """
   def __init__(self, name:str, io_utils:IOutils, mesh:YinYangMesh, field:StagField):
@@ -367,6 +379,15 @@ class SphericalVectorGradient(DerivedField):
     return
   
   def get_data(self) -> np.ndarray|None:
+    """
+    Get the values of the vector field to differentiate with respect to the spherical
+    coordinates. The vector field must be in Cartesian coordinates because the transformation
+    to spherical is done internally.
+
+    :return:
+      Vector field of the shape ``(number_of_cells, components)``
+    :rtype: numpy.ndarray 
+    """
     if self.field.name not in self.mesh.point_data:
       try:
         self.field.add_to_mesh()
@@ -380,6 +401,10 @@ class SphericalVectorGradient(DerivedField):
     return self.mesh.point_data[self.field.name]
   
   def get_values(self) -> np.ndarray|None:
+    """
+    Compute the gradient of a vector field in spherical coordinates with respect to the 
+    spherical coordinates.
+    """
     if self.values is not None:
       return self.values
     field = self.get_data()
