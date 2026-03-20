@@ -22,4 +22,7 @@ the following classes are provided.
 .. autoclass:: stagpyviz.CartesianGradient
   :members:
 
+.. autoclass:: stagpyviz.SphericalVectorGradient
+  :members:
+
 .. autofunction:: stagpyviz.fields_instances

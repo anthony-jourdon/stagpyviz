@@ -339,6 +339,64 @@ class CartesianGradient(DerivedField):
       raise ValueError(f"Cannot compute gradient for field of shape {field.shape} that is not a point field ({self.mesh.number_of_points}).")
     self.values = self.mesh.compute_gradient(field)
     return self.values
+  
+class SphericalVectorGradient(DerivedField):
+  """
+  Class to compute and add to the mesh the gradient of a vector field in spherical coordinates.
+  It proceeds in three steps:
+
+  1.
+    It transforms the vector field from Cartesian to spherical coordinates using the 
+    :py:meth:`vector_cartesian_to_spherical <stagpyviz.UnstructuredSphere.vector_cartesian_to_spherical>` method of the mesh.
+  
+  2.
+    It computes the gradient of the spherical vector field in Cartesian coordinates using the 
+    :py:meth:`compute_gradient <stagpyviz.YinYangMesh.compute_gradient>` method of the mesh.
+  
+  3.
+    It transforms the gradient of the vector field from Cartesian to spherical coordinates using the 
+    :py:meth:`vector_cartesian_to_spherical <stagpyviz.UnstructuredSphere.vector_cartesian_to_spherical>` method of the mesh.
+  
+  """
+  def __init__(self, name:str, io_utils:IOutils, mesh:YinYangMesh, field:StagField):
+    # gradients should not be scaled because they are derived from the original field
+    # that is already scaled if scaling was required, 
+    # so we pass None for the scaling argument
+    super().__init__(name, io_utils, mesh, None)
+    self.field = field
+    return
+  
+  def get_data(self) -> np.ndarray|None:
+    if self.field.name not in self.mesh.point_data:
+      try:
+        self.field.add_to_mesh()
+      except Exception as e:
+        print(f"Cannot compute gradient for field '{self.field.name}' because its values could not be retrieved.")
+        print(f"Error: {e}")
+        return None
+      if self.field.name not in self.mesh.point_data:
+        print(f"Cannot compute gradient for field '{self.field.name}' because its values could not be retrieved.")
+        return None
+    return self.mesh.point_data[self.field.name]
+  
+  def get_values(self) -> np.ndarray|None:
+    if self.values is not None:
+      return self.values
+    field = self.get_data()
+    if field is None:
+      return None
+    if not self.mesh.is_point_field(field):
+      raise ValueError(f"Cannot compute gradient for field of shape {field.shape} that is not a point field ({self.mesh.number_of_points}).")
+    # First we convert the vector field from Cartesian to spherical coordinates
+    field_spherical = self.mesh.vector_cartesian_to_spherical(field)
+    # Then we compute the gradient of the spherical vector field in cartesian coordinates
+    grad_x_fs = self.mesh.compute_gradient(field_spherical)
+    grad_x_fs.shape = (self.mesh.number_of_cells, 9)
+    # Finally we convert the gradient of the vector field from Cartesian to spherical coordinates
+    self.values = np.zeros_like(grad_x_fs)
+    for b in range(3):
+      self.values[:,3*b:3*b+3] = self.mesh.vector_cartesian_to_spherical(grad_x_fs[:,3*b:3*b+3])
+    return self.values
 
 def fields_instances(io_utils:IOutils, mesh:YinYangMesh, scalings:dict[str, Scaling]={}) -> dict[str, StagField]:
   """
@@ -382,7 +440,8 @@ def fields_instances(io_utils:IOutils, mesh:YinYangMesh, scalings:dict[str, Scal
     field_classes["grad_P"]      = CartesianGradient("grad_P", io_utils, mesh, field_classes["pressure"])
     field_classes["grad_P_r"]    = SphericalField("grad_P_r", io_utils, mesh, field_classes["grad_P"])
     field_classes["grad_v"]      = CartesianGradient("grad_v", io_utils, mesh, field_classes["velocity"])
-    
+    field_classes["grad_v_r"]    = SphericalVectorGradient("grad_v_r", io_utils, mesh, field_classes["velocity"])
+
   """
   field_classes = {}
   field_classes["composition"] = StagField("composition", io_utils, mesh)
@@ -405,6 +464,7 @@ def fields_instances(io_utils:IOutils, mesh:YinYangMesh, scalings:dict[str, Scal
   field_classes["grad_P"]      = CartesianGradient("grad_P", io_utils, mesh, field_classes["pressure"])
   field_classes["grad_P_r"]    = SphericalField("grad_P_r", io_utils, mesh, field_classes["grad_P"])
   field_classes["grad_v"]      = CartesianGradient("grad_v", io_utils, mesh, field_classes["velocity"])
+  field_classes["grad_v_r"]    = SphericalVectorGradient("grad_v_r", io_utils, mesh, field_classes["velocity"])
 
   return field_classes
   
