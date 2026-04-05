@@ -16,9 +16,25 @@ class Scaling:
   :param str name: Name of the physical field being scaled (e.g. ``"temperature"``, ``"length"``, etc.)
   :param float factor: Scaling factor for the physical field
   :param str|pint.Unit|None unit: 
-    Unit of the physical field (optional), 
+    Base unit of the physical field (optional), 
     see `pint`_ documentation for supported units. 
     If not provided, the unit will be set to None.
+
+  :Example:
+
+  .. code-block:: python
+
+    from stagpyviz.scaling import Scaling
+
+    p_scaling = Scaling(name="pressure", factor=1e5, unit="Pa")
+    # Convert a non-dimensional pressure field to dimensional
+    p_dim = p_scaling.dim(p_non_dim)
+    # Convert a dimensional pressure field to non-dimensional
+    p_non_dim = p_scaling.a_dim(p_dim)
+    # Convert a dimensional pressure field from Pa to GPa
+    p_gpa = p_scaling.to(p_dim, "GPa")
+    # Convert a dimensional pressure field from GPa to its base units (Pa)
+    p_pa = p_scaling.to_base(p_gpa, "GPa")
   
   :Methods:
 
@@ -95,24 +111,43 @@ def scaling_factors(**kwargs) -> dict[str, Scaling]:
   :param kwargs: Keyword arguments to specify the scaling factors for different fields.
     The following keyword arguments are supported (other quantities are derived from these):
 
-    - ``Ra``: Rayleigh number (default: 1e7)
-    - ``temperature_factor``: Scaling factor for temperature (default: 2700.0 K)
-    - ``temperature_unit``: Unit for temperature (default: "K")
-    - ``length_factor``: Scaling factor for length (default: 2.89e6 m)
-    - ``length_unit``: Unit for length (default: "m")
-    - ``diffusivity_factor``: Scaling factor for diffusivity (default: 1e-6 m^2/s)
-    - ``diffusivity_unit``: Unit for diffusivity (default: "m**2/s")
-    - ``expansion_factor``: Scaling factor for thermal expansion coefficient (default: 3e-5 1/K)
-    - ``expansion_unit``: Unit for thermal expansion coefficient (default: "1/K")
-    - ``gravity_factor``: Scaling factor for gravity (default: 9.81 m/s**2)
-    - ``gravity_unit``: Unit for gravity (default: "m/s**2")
-    - ``density_factor``: Scaling factor for density (default: 3300.0 kg/m**3)
-    - ``density_unit``: Unit for density (default: "kg/m**3")
-    - ``viscosity_factor``: Scaling factor for viscosity (default: calculated from Ra if not provided)
-    - ``viscosity_unit``: Unit for viscosity (default: calculated from Ra if not provided)
+    - ``Ra``: Rayleigh number (default: ``1e7``)
+    - ``temperature_factor``: Scaling factor for temperature (default: ``2700.0`` K)
+    - ``temperature_unit``: Unit for temperature (default: ``"K"``)
+    - ``length_factor``: Scaling factor for length (default: ``2.89e6`` m)
+    - ``length_unit``: Unit for length (default: ``"m"``)
+    - ``diffusivity_factor``: Scaling factor for diffusivity (default: ``1e-6`` m^2/s)
+    - ``diffusivity_unit``: Unit for diffusivity (default: ``"m**2/s"``)
+    - ``expansion_factor``: Scaling factor for thermal expansion coefficient (default: ``3e-5`` 1/K)
+    - ``expansion_unit``: Unit for thermal expansion coefficient (default: ``"1/K"``)
+    - ``gravity_factor``: Scaling factor for gravity (default: ``9.81`` m/s^2)
+    - ``gravity_unit``: Unit for gravity (default: ``"m/s**2"``)
+    - ``density_factor``: Scaling factor for density (default: ``3300.0`` kg/m^3)
+    - ``density_unit``: Unit for density (default: ``"kg/m**3"``)
+    - ``viscosity_factor``: Scaling factor for viscosity (default: calculated from ``Ra`` if not provided)
+    - ``viscosity_unit``: Unit for viscosity (default: calculated from ``Ra`` if not provided)
 
   :return: Dictionary of Scaling instances for different physical fields.
   :rtype: dict[str, Scaling]
+
+  Available fields in the returned dictionary:
+  --------------------------------------------
+
+    - ``"temperature"``: Scaling for temperature
+    - ``"length"``: Scaling for length
+    - ``"diffusivity"``: Scaling for diffusivity
+    - ``"expansion"``: Scaling for thermal expansion coefficient
+    - ``"gravity"``: Scaling for gravity
+    - ``"density"``: Scaling for density
+    - ``"time"``: Scaling for time (derived from length and diffusivity)
+    - ``"velocity"``: Scaling for velocity (derived from length and time)
+    - ``"heat_source"``: Scaling for heat source (derived from temperature and time)
+    - ``"viscosity"``: Scaling for viscosity (derived from Ra if not provided)
+    - ``"pressure"``: Scaling for pressure (derived from viscosity and time)
+    - ``"strain_rate"``: Scaling for strain rate (derived from time)
+    - ``"area"``: Scaling for area (derived from length)
+    - ``"volume"``: Scaling for volume (derived from length)
+  
   """
   if "Ra" not in kwargs:
     s = "Warning: Rayleigh number (Ra) not provided.\n"
@@ -190,6 +225,16 @@ def scaling_factors(**kwargs) -> dict[str, Scaling]:
     name="strain_rate",
     factor=1.0 / scalings["time"].factor,
     unit=scalings["time"].unit**(-1)
+  )
+  scalings["area"] = Scaling(
+    name="area",
+    factor=scalings["length"].factor**2,
+    unit=scalings["length"].unit**2
+  )
+  scalings["volume"] = Scaling(
+    name="volume",
+    factor=scalings["length"].factor**3,
+    unit=scalings["length"].unit**3
   )
   return scalings
 
