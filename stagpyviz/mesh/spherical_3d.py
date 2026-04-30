@@ -306,3 +306,30 @@ class UnstructuredSphere(pvs.UnstructuredGrid):
     t1 = perf_counter()
     print(f"spherical to cartesian vector transformation performed in {t1-t0:g} seconds")
     return v_cartesian
+
+  def point_field_to_cell_field(self, field:np.ndarray) -> np.ndarray:
+    """
+    Transform a point field to a cell field by interpolating the nodal values at elements centroid.
+
+    :param numpy.ndarray field: 
+      The field to transform. Shape should be ``(number_of_points,)``.
+      If a cell field is provided, it will be returned as is.
+    :return: The transformed cell field. Shape is ``(number_of_cells,)``.
+    :rtype: numpy.ndarray
+    """
+    elidx = self.cell_connectivity.reshape((self.number_of_cells, self.elements.basis_per_el))
+    if self.is_cell_field(field):
+      return field
+    elif self.is_point_field(field):
+      t0 = perf_counter()
+      # Get the field values at the nodes of each element
+      elidx = self.cell_connectivity.reshape((self.number_of_cells, self.elements.basis_per_el))
+      Ni_centroid = self.elements.Ni_centroid()  # (nodes_per_el,)
+      field_el = field[ elidx ]  # (number_of_cells, nodes_per_el)
+      # Compute the average value of the field at the nodes of each element
+      field_centroid = np.einsum('k,ek->e', Ni_centroid, field_el)  # (number_of_cells,)
+      t1 = perf_counter()
+      print(f"Field values at element centroids computed in {t1-t0:g} seconds")
+      return field_centroid
+    else:
+      raise ValueError(f"Input field has incompatible shape. Mesh ncells: {self.number_of_cells}, npoints: {self.number_of_points}, field shape: {field.shape}")
