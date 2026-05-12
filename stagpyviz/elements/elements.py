@@ -189,7 +189,6 @@ class Element:
     Ni     = self.evaluate_Ni(points).reshape((weights.shape[0], -1))
     GNi    = self.evaluate_GNi(points)
     J      = self.evaluate_Jacobian(GNi, xe)
-    detJ = self.evaluate_detJ(J)
     detJ   = self.evaluate_detJ(J).reshape((weights.shape[0], -1))
     int_f  = np.einsum('q,qe,qk,ek...->e...',weights, np.abs(detJ), Ni, field_e)
     return int_f
