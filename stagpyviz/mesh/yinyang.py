@@ -694,206 +694,80 @@ class YinYangMesh(UnstructuredSphere):
   @property
   def cells_volume(self) -> np.ndarray:
     if self._cells_volume is None:
-      elidx = self.cell_connectivity.reshape((self.number_of_cells, self.elements.basis_per_el))
-      elcoords = self.points[ elidx, : ]
-      self._cells_volume = self.elements.compute_volume(elcoords,rule="1pt")
+      elidx     = self.cell_connectivity.reshape((self.number_of_cells, self.elements.basis_per_el))
+      el_coords = self.points[ elidx, : ]
+      self._cells_volume = self.elements.evaluate_volume(el_coords,rule=1)
     return self._cells_volume
 
-  def _integrate_cell_field(self, cfield:np.ndarray, volume:np.ndarray) -> np.ndarray:
-    if cfield.shape[0] != volume.shape[0]:
-      raise ValueError(f"Cannot broadcast together cell field of shape {cfield.shape} and volume of shape {volume.shape} for integration")
-    return cfield * volume
-
-  def integrate_cell_field(self, field:np.ndarray, indices:np.ndarray|None=None) -> np.ndarray:
-    """
-    Integrate a cell field over the volume of the cells using a 1 quadrature point rule.
-
-    .. math::
-      \\int_{V_e} f \\ dV \\approx f_c \\cdot V_e
-
-    where :math:`f` is field to be integrated,
-    :math:`f_c` is the value of the field at the centroid of the cell and
-    :math:`V_e` is the volume of the cell.
-
-    :param numpy.ndarray field:
-      The cell field to be integrated. The array should have shape ``(number_of_cells,)``.
-    :param numpy.ndarray indices:
-      Optional boolean array of shape ``(number_of_cells,)`` 
-      containing the indices of the cells for which to perform the integration. 
-      If not provided, the integration will be performed for all cells in the mesh.
-    :return:
-      The integrated field over the cells of shape ``(number_of_cells,)``.
-    :rtype: numpy.ndarray
-    """
-    t0 = perf_counter()
+  def integrate_cell_field(self, field:np.ndarray) -> np.ndarray:
     if not self.is_cell_field(field):
       raise ValueError(f"Field of shape {field.shape} must match number of cells {self.number_of_cells} to be integrated with integrate_cell_field()")
-    if indices is None:
-      int_field = self._integrate_cell_field(field, self.cells_volume)
-    else:
-      if indices.shape[0] != field.shape[0]:
-        raise ValueError(f"Cannot broadcast together field of shape {field.shape} and indices of shape {indices.shape} for integration")
-      int_field = np.zeros_like(field)
-      int_field[indices] = self._integrate_cell_field(field[indices], self.cells_volume[indices])
-    t1 = perf_counter()
-    print(f"Cell field integrated with 1 quadrature point rule in {t1-t0:g} seconds")
-    return int_field
+    return np.einsum('e...,e->e...', field, self.cells_volume)
 
-  def integrate_1pt_rule(self, field:np.ndarray, indices:np.ndarray|None=None) -> np.ndarray:
-    """
-    Integrate a field over the volume of the cells using a 1 point quadrature rule.
-    If the field is a point field, we first interpolate the field at the centroids 
-    of the cells such that:
-
-    .. math::
-      f_c = \\sum_k N_k(\\boldsymbol{\\xi}_c) f_k
-
-    where :math:`f_c` is the value of the field at the centroid of the cell,
-    :math:`N_k` are the shape functions of the element evaluated at the centroid of the cell 
-    and :math:`f_k` are the values of the field at the nodes of the cells.
-    Then call :py:meth:`integrate_cell_field <stagpyviz.YinYangMesh.integrate_cell_field>` 
-    to perform the integration.
-
-    :param numpy.ndarray field:
-      The field to be integrated. 
-      The array should have shape ``(number_of_points,)`` 
-      for a point field or ``(number_of_cells,)`` for a cell field.
-    :param numpy.ndarray indices:
-      Optional boolean array of shape ``(number_of_cells,)``
-      containing the indices of the cells for which to perform the integration.
-      If not provided, the integration will be performed for all cells in the mesh.
-    :return:
-      The integrated field over the cells of shape ``(number_of_cells,)``.
-    :rtype: numpy.ndarray
-    """
+  def integrate_1pt_rule(self, field:np.ndarray) -> np.ndarray:
     if self.is_cell_field(field):
-      return self.integrate_cell_field(field, indices)
+      return self.integrate_cell_field(field)
     elif self.is_point_field(field):
       t0 = perf_counter()
-      # Get the field values at the nodes of each element
       elidx = self.cell_connectivity.reshape((self.number_of_cells, self.elements.basis_per_el))
-      Ni_centroid = self.elements.Ni_centroid()  # (nodes_per_el,)
+      el_coords = self.points[ elidx, : ]  # (number_of_cells, nodes_per_el, 3)
       field_el = field[ elidx ]  # (number_of_cells, nodes_per_el)
-      # Compute the average value of the field at the nodes of each element
-      field_centroid = np.einsum('k,ek->e', Ni_centroid, field_el)  # (number_of_cells,)
       t1 = perf_counter()
-      print(f"Field values at element centroids computed in {t1-t0:g} seconds")
-      return self.integrate_cell_field(field_centroid, indices)
+      integral = self.elements.integrate_field(el_coords, field_el, rule=1)
+      print(f"Field integrated with 1 point rule in {t1-t0:g} seconds")
+      return integral
     else:
       raise ValueError(f"Field of shape {field.shape} must be either a point field with shape ({self.number_of_points},) or a cell field with shape ({self.number_of_cells},) to be integrated with integrate_1pt_rule()")
   
-  def integrate_3x2pt_rule(self, field:np.ndarray, indices:np.ndarray|None=None) -> np.ndarray:
-    """
-    Integrate a field over the volume of the cells using a 3x2 points quadrature rule.
-    Available only for point fields. The integral is computed as:
-
-    .. math::
-      \\int_{V_e} f \\ dV \\approx 
-      \\sum_q w_q |\\text{det}(\\boldsymbol J)_q| \\left( \\sum_k N_k(\\boldsymbol{\\xi}_q) f_k \\right)
-
-    where :math:`w_q` are the quadrature weights, 
-    :math:`\\text{det}(\\boldsymbol J)_q` is the determinant of the 
-    Jacobian matrix evaluated at the quadrature point :math:`q`,
-    :math:`N_k` are the shape functions of the element evaluated at the quadrature point :math:`q` 
-    and :math:`f_k` are the values of the field at the nodes of the cells.
-
-    :param numpy.ndarray field:
-      The point field to be integrated. The array should have shape ``(number_of_points,)``.
-    :param numpy.ndarray indices:
-      Optional boolean array of shape ``(number_of_cells,)``
-      containing the indices of the cells for which to perform the integration.
-      If not provided, the integration will be performed for all cells in the mesh.
-    :return:
-      The integrated field over the cells of shape ``(number_of_cells,)``.
-    :rtype: numpy.ndarray
-    """
+  def integrate_3x2pt_rule(self, field:np.ndarray) -> np.ndarray:
     t0 = perf_counter()
     if not self.is_point_field(field):
       raise ValueError(f"Field of shape {field.shape} must match number of points {self.number_of_points} to be integrated with integrate_3x2pt_rule()")
-    
-    # quadrature points and weights
-    weights,qpoints = self.elements.quadrature_rule_3x2()
-    # element-vertex connectivity
+    t0 = perf_counter()
     elidx = self.cell_connectivity.reshape((self.number_of_cells, self.elements.basis_per_el))
-    
-    # elements nodal values
-    el_field = field[ elidx ]
-    # elements nodes coords
-    elcoords = self.points[ elidx, : ]
-    # Shape functions
-    Ni   = self.elements.evaluate_Ni(qpoints)
-    # Shape function derivatives
-    GNi  = self.elements.evaluate_GNi(qpoints)
-    if indices is None:
-      J    = self.elements.evaluate_Jacobian(GNi, elcoords)
-      detJ = self.elements.evaluate_detJ(J)
-      int_field = np.einsum('q,qe,qk,ek->e', weights, np.abs(detJ), Ni, el_field)
-    else:
-      if indices.shape[0] != field.shape[0]:
-        raise ValueError(f"Cannot broadcast together field of shape {field.shape} and indices of shape {indices.shape} for integration")
-      int_field = self.create_cell_field()
-      J    = self.elements.evaluate_Jacobian(GNi, elcoords[indices,:,:])
-      detJ = self.elements.evaluate_detJ(J)
-      int_field[indices] = np.einsum('q,qe,qk,ek->e', weights, np.abs(detJ), Ni, el_field[indices,:])
-
+    el_coords = self.points[ elidx, : ]  # (number_of_cells, nodes_per_el, 3)
+    field_el = field[ elidx ]  # (number_of_cells, nodes_per_el, ...)
+    int_field = self.elements.integrate_field(el_coords, field_el, rule=6)
     t1 = perf_counter()
-    print(f"Field integrated with 3x2 quadrature points rule in {t1-t0:g} seconds")
+    print(f"Field integrated with 6 point rule in {t1-t0:g} seconds")
     return int_field
 
-  def integrate_over_cell(self,field:np.ndarray,rule:str="1pt",indices:np.ndarray|None=None) -> np.ndarray:
+  def integrate_over_cell(self,field:np.ndarray,rule:str="1pt") -> np.ndarray:
     """
     Integrate a field over cells for each cell.
     The integration can be performed using different quadrature 
     rules specified by the ``rule`` parameter, by default the 1 point quadrature rule
-    is used (see method :py:meth:`integrate_1pt_rule <stagpyviz.YinYangMesh.integrate_1pt_rule>`).
+    is used (see :py:meth:`Wedge3D.quadrature_1pt <stagpyviz.Wedge3D.quadrature_1pt>`).
+    Integration is perfomed using :py:meth:`integrate_field <stagpyviz.Element.integrate_field>`.
 
     :param np.ndarray field:
       The field to be integrated. 
-      The array should have shape ``(number_of_points,)`` for a point field or
-      ``(number_of_cells,)`` for a shape field.
+      The array should have shape ``(number_of_points, ...)`` for a point field or
+      ``(number_of_cells, ...)`` for a cell field.
     :param str rule: 
       Quadrature rule to be used. 
       Available:
 
-      - ``"1pt"``: 1 point rule using method :py:meth:`integrate_1pt_rule <stagpyviz.YinYangMesh.integrate_1pt_rule>`.
+      - ``"1pt"``: 1 point quadrature rule using :py:meth:`Wedge3D.quadrature_1pt <stagpyviz.Wedge3D.quadrature_1pt>`.
         Cell fields automatically use this method.
 
-      - ``"3x2pt"``: 3x2 points rule using method :py:meth:`integrate_3x2pt_rule <stagpyviz.YinYangMesh.integrate_3x2pt_rule>`.
+      - ``"3x2pt"``: 3x2 points rule using method :py:meth:`quadrature_6pt <stagpyviz.Wedge3D.quadrature_6pt>`.
     
-    :param np.ndarray indices:
-      Optional boolean array of shape ``(number_of_cells,)``
-      containing the indices of the cells for which to perform the integration.
-      If not provided, the integration will be performed for all cells in the mesh.
     :return:
-      The integrated field over the cells of shape ``(number_of_cells,)``.
+      The integrated field over the cells of shape ``(number_of_cells, ...)``.
     :rtype: numpy.ndarray
     """
     if self.is_cell_field(field):
-      return self.integrate_1pt_rule(field, indices)
+      return self.integrate_1pt_rule(field)
     elif self.is_point_field(field):
       if rule == "1pt":
-        return self.integrate_1pt_rule(field, indices)
+        return self.integrate_1pt_rule(field)
       elif rule == "3x2pt":
-        return self.integrate_3x2pt_rule(field, indices)
+        return self.integrate_3x2pt_rule(field)
       else:
         raise ValueError(f"Invalid integration rule {rule}. Supported rules are '1pt' and '3x2pt'")
     else:
       raise ValueError(f"Field of shape {field.shape} must be either a point field with shape ({self.number_of_points},) or a cell field with shape ({self.number_of_cells},) to be integrated with integrate_over_cell()")
-
-  def cell_data_to_point_data(self, pass_cell_data:bool=False) -> None:
-    """
-    Convert cell data to point data on the mesh.
-    
-    :param bool pass_cell_data:
-      If True, the cell data will be kept in the mesh after conversion.
-      If False, the cell data will be removed from the mesh after conversion.
-    """
-    point_mesh = super().cell_data_to_point_data()
-    for f in point_mesh.point_data:
-      if pass_cell_data == False and f in self.cell_data:
-        self.cell_data.pop(f)
-      self.point_data[f] = point_mesh.point_data[f]
-    return
 
 def test():
   import os
