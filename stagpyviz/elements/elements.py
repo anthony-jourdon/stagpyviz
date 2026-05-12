@@ -12,13 +12,6 @@ class Element:
     In the following documentation, the term *reference* refers to the reference element (e.g., the unit triangle or unit square), 
     while *physical* refers to the actual element in the physical domain defined by its node coordinates.
 
-  .. note::
-    Currently the implementation of Jacobian related quatities (Jacobian matrix and physical shape functions derivatives) 
-    only supports the reference derivatives of the shape functions evaluated at a single point (e.g., the centroid) for all elements.
-    
-    A simple improvement would be to allow passing the reference derivatives evaluated at different points across the elements (but still one point per element).
-    
-    A more complex improvement would be to allow passing the reference derivatives evaluated at multiple points across the elements (e.g., quadrature points).
   """
   def __init__(self):
     self.dim = None
@@ -37,8 +30,14 @@ class Element:
   def GNi_centroid(self):
     raise NotImplementedError("GNi_centroid method defined in subclasses.")
   
+  def evaluate_detJ(self, J:np.ndarray):
+    raise NotImplementedError("evaluate_detJ method defined in subclasses.")
+  
   def evaluate_invJ(self, xi:np.ndarray, xe:np.ndarray):
     raise NotImplementedError("evaluate_invJ method defined in subclasses.")
+  
+  def quadrature(self, nqp:int):
+    raise NotImplementedError("quadrature method defined in subclasses.")
   
   def evaluate_Jacobian(self, GNi:np.ndarray, xe:np.ndarray) -> np.ndarray:
     """
@@ -129,6 +128,71 @@ class Element:
     else:
       raise ValueError("xe must be 2D or 3D array.")
     return centroid
+  
+  def evaluate_volume(self, xe:np.ndarray, rule:int=1) -> np.ndarray:
+    """
+    Evaluate the volume (or area in 2D) of the element(s) using numerical quadrature such that:
+
+    .. math::
+      V_e = \\int_{\\Omega_e} 1 \\, dV \\approx \\sum_q w_q |\\det(\\boldsymbol J_q)|
+
+    where :math:`w_q` are the quadrature weights, 
+    :math:`\\det(\\boldsymbol J_q)` are the determinants of the Jacobian matrices 
+    at the quadrature points, and the sum is over all quadrature points.
+
+    :param numpy.ndarray xe: 
+      Array of shape ``(n_cells, nnodes, physical dim)`` containing the physical coordinates of the nodes.
+    :param int rule: 
+      The quadrature rule to use. 
+      See elements specific documentation.
+    :return: 
+      The volume (or area in 2D) of the element(s). 
+      Array of shape ``(n_cells,)``.
+    :rtype: numpy.ndarray
+    """
+    weights, points = self.quadrature(nqp=rule)
+    GNi    = self.evaluate_GNi(points)
+    J      = self.evaluate_Jacobian(GNi, xe)
+    detJ   = self.evaluate_detJ(J).reshape((weights.shape[0], -1))
+    volume = np.einsum('q,qe->e', weights, np.abs(detJ))
+    return volume
+  
+  def integrate_field(self, xe:np.ndarray, field_e:np.ndarray, rule:int=1) -> np.ndarray:
+    """
+    Evaluate the integral of a field defined at the nodes of the element(s) 
+    using numerical quadrature such that:
+
+    .. math::
+      I_e = \\int_{\\Omega_e} f(\\mathbf x) \\, dV \\approx 
+      \\sum_q w_q |\\det(\\boldsymbol J_q)| \\left( \\sum_k N_k(\\boldsymbol \\xi_q) f_k \\right)
+
+    where :math:`w_q` are the quadrature weights, 
+    :math:`\\det(\\boldsymbol J_q)` are the determinants of the Jacobian matrices at the quadrature points,
+    :math:`N_k(\\boldsymbol \\xi_q)` are the shape functions evaluated at the quadrature points and 
+    :math:`f_k` are the values of the field at the nodes.
+
+    :param numpy.ndarray xe: 
+      Array of shape ``(n_cells, nnodes, physical dim)`` 
+      containing the physical coordinates of the nodes.
+    :param numpy.ndarray field_e: 
+      Array of shape ``(n_cells, nnodes, ...)`` containing the values of the field at the nodes.
+      The last dimensions can be of any shape, and will be preserved in the output.
+    :param int rule: 
+      The quadrature rule to use. 
+      See elements specific documentation.
+    :return: 
+      The integral of the field over the element(s). 
+      Array of shape ``(n_cells, ...)``.
+    :rtype: numpy.ndarray
+    """
+    weights, points = self.quadrature(nqp=rule)
+    Ni     = self.evaluate_Ni(points).reshape((weights.shape[0], -1))
+    GNi    = self.evaluate_GNi(points)
+    J      = self.evaluate_Jacobian(GNi, xe)
+    detJ = self.evaluate_detJ(J)
+    detJ   = self.evaluate_detJ(J).reshape((weights.shape[0], -1))
+    int_f  = np.einsum('q,qe,qk,ek...->e...',weights, np.abs(detJ), Ni, field_e)
+    return int_f
 
 class Element2D(Element):
   """
@@ -179,7 +243,6 @@ class Element2D(Element):
     """
     if J.ndim < 2 or J.shape[-2:] != (2, 2):
       raise ValueError("J must have shape (..., 2, 2).")
-    J = np.zeros_like(J)
     invJ = np.zeros_like(J)
     invJ[..., 0, 0] =  J[..., 1, 1]
     invJ[..., 0, 1] = -J[..., 0, 1]
@@ -280,29 +343,21 @@ class SurfaceElement(Element):
     where :math:`\\mathbf t_{\\xi}` and :math:`\\mathbf t_{\\eta}` are the tangent vectors defined by 
     the columns of the Jacobian matrix, and :math:`\\times` denotes the cross product.
 
-    :param numpy.ndarray J: Array of shape ``(3, 2)`` for a single element, or ``(n_cells, 3, 2)`` for multiple elements, containing the Jacobian matrix.
+    :param numpy.ndarray J: 
+      Array of shape ``(..., 3, 2)`` containing the Jacobian matrix.
+      The ellipsis can represent multiple elements and/or multiple evaluation points,
+      but the last two dimensions must be ``(3, 2)``.
     :return: 
       The non-unit normal vector to the surface element. 
-      For a single element, an array of shape ``(3,)``. 
-      For multiple elements, an array of shape ``(n_cells, 3)``.
+      Array of shape ``(..., 3)``. 
     :rtype: numpy.ndarray
     """
-    if J.ndim == 2:
-      # Single element
-      tangent1 = J[:,0]
-      tangent2 = J[:,1]
-      normal = np.cross(tangent1, tangent2)
-    elif J.ndim == 3:
-      # Multiple elements
-      tangent1 = J[:,:,0] # shape (n_elements, 3)
-      tangent2 = J[:,:,1] # shape (n_elements, 3)
-      # cross product
-      normal = np.empty_like(tangent1)
-      normal[:,0] = tangent1[:,1]*tangent2[:,2] - tangent1[:,2]*tangent2[:,1]
-      normal[:,1] = tangent1[:,2]*tangent2[:,0] - tangent1[:,0]*tangent2[:,2]
-      normal[:,2] = tangent1[:,0]*tangent2[:,1] - tangent1[:,1]*tangent2[:,0]
-    else:
-      raise ValueError("J must be 2D or 3D array.")
+    tangent1 = J[...,0] # shape (n_elements, 3)
+    tangent2 = J[...,1] # shape (n_elements, 3)
+    normal = np.empty_like(tangent1)
+    normal[...,0] = tangent1[...,1]*tangent2[...,2] - tangent1[...,2]*tangent2[...,1]
+    normal[...,1] = tangent1[...,2]*tangent2[...,0] - tangent1[...,0]*tangent2[...,2]
+    normal[...,2] = tangent1[...,0]*tangent2[...,1] - tangent1[...,1]*tangent2[...,0]
     return normal
   
   def normal_vector(self, J:np.ndarray) -> np.ndarray:
@@ -311,11 +366,13 @@ class SurfaceElement(Element):
     The non-unit normal vector is computed using the method :py:meth:`normal_vector_nonu <stagpyviz.SurfaceElement.normal_vector_nonu>`, 
     and then normalized by its magnitude (which is the determinant of the Jacobian matrix) to obtain the unit normal vector.
 
-    :param numpy.ndarray J: Array of shape ``(3, 2)`` for a single element, or ``(n_cells, 3, 2)`` for multiple elements, containing the Jacobian matrix.
+    :param numpy.ndarray J: 
+      Array of shape ``(..., 3, 2)`` containing the Jacobian matrix.
+      The ellipsis can represent multiple elements and/or multiple evaluation points,
+      but the last two dimensions must be ``(3, 2)``.
     :return: 
       The unit normal vector to the surface element. 
-      For a single element, an array of shape ``(3,)``. 
-      For multiple elements, an array of shape ``(n_cells, 3)``.
+      Array of shape ``(..., 3)``. 
     :rtype: numpy.ndarray
     """
     normal = self.normal_vector_nonu(J)
@@ -335,20 +392,17 @@ class SurfaceElement(Element):
 
     where :math:`\\mathbf n` is the non-unit normal vector to the surface element computed using the method :py:meth:`normal_vector_nonu <stagpyviz.SurfaceElement.normal_vector_nonu>`.
 
-    :param numpy.ndarray J: Array of shape ``(3, 2)`` for a single element, or ``(n_cells, 3, 2)`` for multiple elements, containing the Jacobian matrix.
+    :param numpy.ndarray J: 
+      Array of shape ``(..., 3, 2)`` containing the Jacobian matrix.
+      The ellipsis can represent multiple elements and/or multiple evaluation points, 
+      but the last two dimensions must be ``(3, 2)``.
     :return: 
       The determinant of the metric tensor :math:`\\det(\\boldsymbol G)` for the element(s). 
-      For a single element, a float. 
-      For multiple elements, an array of shape ``(n_cells,)``.
+      Shape of the input ellipsis.
     :rtype: float or numpy.ndarray
     """
     normal = self.normal_vector_nonu(J)
-    if J.ndim == 2:
-      detG = np.dot(normal, normal)
-    elif J.ndim == 3:
-      detG = np.einsum('ei,ei->e', normal, normal)
-    else:
-      raise ValueError("J must be 2D or 3D array.")
+    detG = np.einsum('...ei,...ei->...e', normal, normal)
     return detG
 
   def evaluate_detJ(self, J:np.ndarray) -> float|np.ndarray:
@@ -360,11 +414,13 @@ class SurfaceElement(Element):
 
     where :math:`\\det(\\boldsymbol G)` is the determinant of the metric tensor computed using the method :py:meth:`evaluate_detG <stagpyviz.SurfaceElement.evaluate_detG>`.
 
-    :param numpy.ndarray J: Array of shape ``(3, 2)`` for a single element, or ``(n_cells, 3, 2)`` for multiple elements, containing the Jacobian matrix.
+    :param numpy.ndarray J: 
+      Array of shape ``(..., 3, 2)`` containing the Jacobian matrix.
+      The ellipsis can represent multiple elements and/or multiple evaluation points,
+      but the last two dimensions must be ``(3, 2)``.
     :return: 
       The determinant of the Jacobian matrix for the element(s). 
-      For a single element, a float. 
-      For multiple elements, an array of shape ``(n_cells,)``.
+      Shape of the input ellipsis.
     :rtype: float or numpy.ndarray
     """
     detG = self.evaluate_detG(J)
@@ -381,19 +437,18 @@ class SurfaceElement(Element):
     where :math:`\\mathbf t_{\\xi_i}` and :math:`\\mathbf t_{\\xi_j}` are the tangent vectors 
     defined by the columns of the Jacobian matrix.
     
-    :param numpy.ndarray J: Array of shape ``(3, 2)`` for a single element, or ``(n_cells, 3, 2)`` for multiple elements, containing the Jacobian matrix.
+    :param numpy.ndarray J: 
+      Array of shape ``(..., 3, 2)`` containing the Jacobian matrix.
+      The ellipsis can represent multiple elements and/or multiple evaluation points, 
+      but the last two dimensions must be ``(3, 2)``.
     :return: 
       The metric tensor :math:`\\boldsymbol G` for the element(s). 
-      For a single element, an array of shape ``(2, 2)``. 
-      For multiple elements, an array of shape ``(n_cells, 2, 2)``.
+      Array of shape ``(..., 2, 2)``. 
+      The ellipsis can represent multiple elements and/or 
+      multiple evaluation points depending on the input shape.
     :rtype: numpy.ndarray
     """
-    if J.ndim == 2:
-      G = np.matmul(J.T, J)
-    elif J.ndim == 3:
-      G = np.einsum('eki,ekj->eij', J, J)
-    else:
-      raise ValueError("J must be 2D or 3D array.")
+    G = np.einsum('...ki,...kj->...ij', J, J)
     return G
 
   def evaluate_dNidx(self, J:np.ndarray, GNi:np.ndarray) -> np.ndarray:
@@ -408,12 +463,20 @@ class SurfaceElement(Element):
     :math:`G^{-1}_{ml}` are the components of the inverse of the metric tensor, 
     and :math:`\\partial_{\\xi_l} N_k` are the derivatives of the shape functions with respect to the reference coordinates.
     
-    :param numpy.ndarray J: Array of shape ``(3, 2)`` for a single element, or ``(n_cells, 3, 2)`` for multiple elements, containing the Jacobian matrix.
-    :param numpy.ndarray GNi: Array of shape ``(nnodes, 2)`` containing the derivatives of the shape functions with respect to the reference coordinates.
+    :param numpy.ndarray J: 
+      Array of shape ``(..., 3, 2)`` containing the Jacobian matrix. 
+      The ellipsis can represent multiple elements and/or multiple evaluation points, 
+      but the last two dimensions must be ``(3, 2)``.
+    :param numpy.ndarray GNi: 
+      Array of shape ``(..., nnodes, 2)`` containing the derivatives of the shape functions 
+      with respect to the reference coordinates.
+      The ellipsis can represent multiple elements and/or multiple evaluation points, 
+      but the last two dimensions must be ``(nnodes, 2)``.
     :return:
       The physical derivatives of the shape functions with respect to the physical coordinates.
-      For a single element, an array of shape ``(nnodes, 3)``.
-      For multiple elements, an array of shape ``(n_cells, nnodes, 3)``.
+      Shape ``(..., nnodes, 3)``. 
+      The ellipsis can represent multiple elements and/or multiple evaluation points 
+      depending on the input shapes.
     :rtype: numpy.ndarray
 
     """
@@ -421,10 +484,6 @@ class SurfaceElement(Element):
     detG = self.evaluate_detG(J)
     invG = Element2D().evaluate_invJ(G, detG)
     # Compute physical derivatives dN/dx = J * invG * GNi
-    if J.ndim == 2:
-      M = np.einsum('ik,kj->ij', J, invG)  # shape (3,2)
-      dNidx = np.einsum('ji,ki->kj', M, GNi)  # shape (nnodes, 3)
-    elif J.ndim == 3:
-      M = np.einsum('eik,ekj->eij', J, invG)  # shape (n_elements, 3, 2)
-      dNidx = np.einsum('eji,ki->ekj', M, GNi)  # shape (n_elements, nnodes, 3)
+    M = np.einsum('...ik,...kj->...ij', J, invG)  # shape (..., 3, 2)
+    dNidx = np.einsum('...ji,...ki->...kj', M, GNi)  # shape (..., nnodes, 3)
     return dNidx
