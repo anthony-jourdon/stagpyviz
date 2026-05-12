@@ -166,10 +166,40 @@ class ShellMesh(UnstructuredSphere):
       # Compute the area of each triangle
       elidx = self.cell_connectivity.reshape((self.number_of_cells, self.elements.basis_per_el))
       el_coords = self.points[elidx, :]
-      self._cells_area = self.elements.compute_area(el_coords)
+      self._cells_area = self.elements.evaluate_volume(el_coords, rule=1)
     return self._cells_area
+  
+  def integrate_cell_field(self, cfield:np.ndarray) -> np.ndarray:
+    if not self.is_cell_field(cfield):
+      raise ValueError(f"Field of shape {cfield.shape} must match number of cells {self.number_of_cells} to be integrated with integrate_cell_field()")
+    return np.einsum('e...,e->e...', cfield, self.cells_area)
 
-  def integrate_over_cell(self, field:np.ndarray) -> np.ndarray:
+  def integrate_1pt_rule(self, field:np.ndarray) -> np.ndarray:
+    if self.is_cell_field(field):
+      return self.integrate_cell_field(field)
+    elif self.is_point_field(field):
+      # Get the field values at the nodes of each element
+      elidx = self.cell_connectivity.reshape((self.number_of_cells, self.elements.basis_per_el))
+      el_coords = self.points[elidx, :]
+      field_el = field[elidx]  # (number_of_cells, nodes_per_el)
+      integral = self.elements.integrate_field(el_coords, field_el, rule=1)
+      return integral
+    else:
+      raise ValueError(f"Field of shape {field.shape} must be either a point field with shape ({self.number_of_points},) or a cell field with shape ({self.number_of_cells},) to be integrated with integrate_1pt_rule()")
+
+  def integrate_3pt_rule(self, field:np.ndarray) -> np.ndarray:
+    if not self.is_point_field(field):
+      raise ValueError(f"Field of shape {field.shape} must match number of points {self.number_of_points} to be integrated with integrate_3pt_rule()")
+    t0 = perf_counter()
+    elidx = self.cell_connectivity.reshape((self.number_of_cells, self.elements.basis_per_el))
+    el_coords = self.points[elidx, :]  # (number_of_cells, nodes_per_el, 3)
+    field_el = field[elidx]  # (number_of_cells, nodes_per_el)
+    int_field = self.elements.integrate_field(el_coords, field_el, rule=3)
+    t1 = perf_counter()
+    print(f"Field integrated with 3 point rule in {t1-t0:g} seconds")
+    return int_field
+
+  def integrate_over_cell(self, field:np.ndarray, rule:str="1pt") -> np.ndarray:
     """
     Compute the numerical integral of a field over each cell of the mesh using a 1 point quadrature rule.
     The field can be either a point field (defined at mesh points) or a cell field (defined at mesh cells). 
@@ -187,18 +217,18 @@ class ShellMesh(UnstructuredSphere):
     :return: A 1D array of shape ``(number_of_cells,)`` containing the integral of the field over each cell.
     :rtype: numpy.ndarray
     """
-    elidx = self.cell_connectivity.reshape((self.number_of_cells, self.elements.basis_per_el))
-    if not self.is_cell_field(field):
-      if self.is_point_field(field):
-        # first interpolate point field to cell centroids
-        Ni_centroid = self.elements.Ni_centroid() # shape functions at cell centroids
-        _field = np.einsum('k,ek->e', Ni_centroid, field[elidx]) # interpolate field at cell centroids
-      else:
-        raise ValueError(f"Field must be either a point field ({self.number_of_points}) or a cell field ({self.number_of_cells}), found {field.shape}.")
+    if self.is_cell_field(field):
+      return self.integrate_cell_field(field)
+    elif self.is_point_field(field):
+      match rule:
+        case "1pt":
+          return self.integrate_1pt_rule(field)
+        case "3pt":
+          return self.integrate_3pt_rule(field)
+        case _:
+          raise ValueError(f"Unsupported quadrature rule: {rule}. Supported values are '1pt' and '3pt'.")
     else:
-      _field = field
-    integral = _field * self.cells_area
-    return integral
+      raise ValueError(f"Field of shape {field.shape} must be either a point field with shape ({self.number_of_points},) or a cell field with shape ({self.number_of_cells},) to be integrated with integrate_over_cell()")
 
   def locate_points(self, points:np.ndarray, max_it:int=1000, tol:float=1e-12) -> tuple[np.ndarray, np.ndarray]:
     print("WARNING: ShellMesh.locate_points may be inaccurate for points near element boundaries.")
@@ -272,7 +302,7 @@ class ShellMesh(UnstructuredSphere):
     facets = np.copy(elidx)
     elcoords = points[facets, :]  # (n_cells, 3, 3)
     J = element.evaluate_Jacobian(element.GNi_centroid(), elcoords)
-    normal = element.normal_vector_nonu(J)  # (n_cells, 3)
+    normal = element.normal_vector_nonu(J).reshape((-1, 3))  # (n_cells, 3)
     centroids = element.evaluate_element_centroid(elcoords)
     dot = np.einsum('ei,ei->e', normal, centroids)  # Find elements where dot < 0
     bad = dot < 0.0
