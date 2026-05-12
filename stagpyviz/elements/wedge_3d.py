@@ -26,6 +26,87 @@ class Wedge3D(Element3D):
     self.basis_per_el = 6
     return
   
+  def quadrature(self, nqp):
+    """
+    Return the quadrature weights and points for the specified number of quadrature points.
+    Supported values for nqp are:
+
+    - ``1``: 1 point quadrature rule (centroid), call to :py:meth:`quadrature_1pt <stagpyviz.Wedge3D.quadrature_1pt>`
+    - ``6``: 3x2 point quadrature rule, call to :py:meth:`quadrature_6pt <stagpyviz.Wedge3D.quadrature_6pt>`
+
+    :param int nqp: Number of quadrature points. Supported values are ``1`` and ``6``.
+    :return: Tuple containing the quadrature weights and points.
+    :rtype: tuple(numpy.ndarray, numpy.ndarray)
+    """
+    match nqp:
+      case 1:
+        return self.quadrature_1pt()
+      case 6:
+        return self.quadrature_6pt()
+      case _:
+        raise ValueError(f"Unsupported number of quadrature points: {nqp}. Supported values are 1 and 6.")
+    return 
+  
+  def quadrature_1pt(self):
+    """
+    1 point quadrature rule for a wedge element in 3D, 
+    which corresponds to evaluating the integrand at the centroid of the reference element.
+
+    .. math::
+      w_0 = 1, \\quad \\boldsymbol \\xi_0 = 
+      \\begin{bmatrix} 
+        1/3 \\\\ 
+        1/3 \\\\
+        0
+      \\end{bmatrix}
+
+    with :math:`w_0` the quadrature weight and :math:`\\boldsymbol \\xi_0` the quadrature point.
+
+    :return: Tuple containing the quadrature weights and points.
+      The weight is returned as a 1D array of shape ``(1,)``,
+      and the points are returned as a 2D array of shape ``(1, 3)``.
+    :rtype: tuple(numpy.ndarray, numpy.ndarray)
+    """
+    weight = np.array([1.0], dtype=np.float64)
+    point = np.array([
+      [1.0/3.0, 1.0/3.0, 0.0]
+    ], dtype=np.float64)
+    return weight, point
+  
+  def quadrature_6pt(self):
+    """
+    :math:`3 \\times 2` point quadrature rule for a wedge element in 3D,
+    which corresponds to the tensor product of the 3 point quadrature rule for a triangle 
+    and the 2 Gauss point quadrature rule for a line.
+
+    .. math::
+      w_{ij} = w_i^{\\triangle} \\cdot w_j^{\\text{line}}, \\quad \\boldsymbol \\xi_{ij} = 
+      \\begin{bmatrix} 
+        \\xi_i^{\\triangle} \\\\ 
+        \\eta_i^{\\triangle} \\\\
+        \\zeta_j^{\\text{line}}
+      \\end{bmatrix}
+
+    :return: Tuple containing the quadrature weights and points.
+      The weights are returned as a 1D array of shape ``(6,)``,
+      and the points are returned as a 2D array of shape ``(6, 3)``.
+    :rtype: tuple(numpy.ndarray, numpy.ndarray)
+    """
+    one_sixth = np.float64(0.16666666666666666)
+    two_third = np.float64(0.6666666666666666)
+    one_sqrt3 = np.float64(0.5773502691896258)
+
+    weights = np.full(6, 1.0/6.0, dtype=np.float64)
+    points = np.array([
+      [one_sixth, one_sixth, -one_sqrt3],
+      [two_third, one_sixth, -one_sqrt3],
+      [one_sixth, two_third, -one_sqrt3],
+      [one_sixth, one_sixth, one_sqrt3],
+      [two_third, one_sixth, one_sqrt3],
+      [one_sixth, two_third, one_sqrt3]
+    ], dtype=np.float64)
+    return weights, points
+  
   def evaluate_Ni(self, xi:np.ndarray):
     """
     Evaluate the shape functions at given reference coordinates :math:`\\boldsymbol \\xi = (\\xi, \\eta, \\zeta)`.
@@ -96,8 +177,11 @@ class Wedge3D(Element3D):
     where the rows correspond to the shape functions :math:`N_k` 
     and the columns correspond to the reference coordinates :math:`(\\xi, \\eta, \\zeta)`.
 
-    :param numpy.ndarray xi: Array of shape ``(3,)`` containing the reference coordinates.
-    :return: Array of shape ``(6, 3)`` containing the derivatives of the shape functions with respect to the reference coordinates at the given reference coordinates.
+    :param numpy.ndarray xi: 
+      Array of shape ``(npoints, 3)`` containing the reference coordinates.
+    :return: 
+      Array of shape ``(npoints, 6, 3)`` containing the derivatives of the 
+      shape functions with respect to the reference coordinates at the given reference coordinates.
     :rtype: numpy.ndarray
     """
     if xi.ndim == 1:
@@ -150,106 +234,3 @@ class Wedge3D(Element3D):
     xi  = np.array([1.0/3.0, 1.0/3.0, 0.0], dtype=np.float64)
     GNi = self.evaluate_GNi(xi)
     return GNi
-  
-  def quadrature_rule_3x2(self):
-    one_sixth = np.float64(0.16666666666666666)
-    two_third = np.float64(0.6666666666666666)
-    one_sqrt3 = np.float64(0.5773502691896258)
-
-    weights = np.full(6, 1.0/6.0, dtype=np.float64)
-    points = np.array([
-      [one_sixth, one_sixth, -one_sqrt3],
-      [two_third, one_sixth, -one_sqrt3],
-      [one_sixth, two_third, -one_sqrt3],
-      [one_sixth, one_sixth, one_sqrt3],
-      [two_third, one_sixth, one_sqrt3],
-      [one_sixth, two_third, one_sqrt3]
-    ], dtype=np.float64)
-    return weights, points
-
-  def compute_volume_1pt_rule(self, xe:np.ndarray) -> float|np.ndarray:
-    """
-    Compute the volume of the wedge element given the coordinates of its vertices 
-    using a 1 quadrature point rule.
-    The volume is computed as:
-
-    .. math::
-      V = |det(\\boldsymbol{J})|
-
-    where :math:`\\boldsymbol{J}` is the Jacobian matrix of the transformation from the reference element 
-    to the physical element evaluated at the element centroid.
-
-    :param numpy.ndarray xe: 
-      For a single element: array of shape ``(6, 3)`` containing the coordinates of the wedge vertices.
-      For multiple elements: array of shape ``(number_of_cells, 6, 3)`` 
-      containing the coordinates of the wedge vertices for each element.
-    :return: Volume of the element(s).
-    :rtype: float|np.ndarray
-    """
-    t0 = perf_counter()
-    GNi  = self.GNi_centroid()
-    J    = self.evaluate_Jacobian(GNi, xe)
-    detJ = self.evaluate_detJ(J)
-    t1 = perf_counter()
-    print(f"Computed the volume of {detJ.shape[0]} cells in {t1-t0:g} seconds using the 1 quadrature point rule")
-    return np.abs(detJ)
-  
-  def compute_volume_3x2pt_rule(self, xe:np.ndarray) -> float|np.ndarray:
-    """
-    Compute the volume of the wedge element given the coordinates of its vertices 
-    using a 3x2 quadrature points rule.
-    The volume is computed as:
-
-    .. math::
-      V = \\sum_q |det(\\boldsymbol{J}_q)| w_q
-
-    where :math:`\\boldsymbol{J}` is the Jacobian matrix of the transformation from the reference element 
-    to the physical element evaluated at the element centroid.
-
-    :param numpy.ndarray xe: 
-      For a single element: array of shape ``(6, 3)`` containing the coordinates of the wedge vertices.
-      For multiple elements: array of shape ``(number_of_cells, 6, 3)`` containing the coordinates of the wedge vertices for each element.
-    :return: Volume of the element(s).
-    :rtype: float|np.ndarray
-    """
-    t0 = perf_counter()
-    
-    weights,qpoints = self.quadrature_rule_3x2()
-    nqp    = weights.shape[0]
-    ncells = xe.shape[0] if xe.ndim == 3 else 1
-
-    GNi  = self.evaluate_GNi(qpoints)
-    J    = self.evaluate_Jacobian(GNi, xe)
-    detJ = self.evaluate_detJ(J)
-    volume = np.einsum("q,qe->e", weights, np.abs(detJ))
-
-    t1 = perf_counter()
-    print(f"Computed the volume of {ncells} cells in {t1-t0:g} seconds using the 3x2 quadrature points rule")
-    return volume
-
-  def compute_volume(self,xe:np.ndarray,rule:str="1pt") -> float|np.ndarray:
-    """
-    Compute the volume of the wedge element given the coordinates of its vertices.
-    The volume can be computed using either a 1 quadrature point rule or a 3x2 quadrature points rule, 
-    specified by the ``rule`` parameter. See the methods 
-    :py:meth:`compute_volume_1pt_rule <stagpyviz.Wedge3D.compute_volume_1pt_rule>` and 
-    :py:meth:`compute_volume_3x2pt_rule <stagpyviz.Wedge3D.compute_volume_3x2pt_rule>` 
-    for details on the volume computation with each quadrature rule.
-
-    :param numpy.ndarray xe: 
-      For a single element: array of shape ``(6, 3)`` containing the coordinates of the wedge vertices.
-      For multiple elements: array of shape ``(number_of_cells, 6, 3)`` containing the coordinates of the wedge vertices for each element.
-    :param str rule: 
-      Quadrature rule to use for volume computation. 
-      Supported values are ``"1pt"`` for a 1 quadrature point rule and 
-      ``"3x2pt"`` for a 3x2 quadrature points rule. Default is ``"1pt"``.
-    :return: Volume of the element(s).
-    :rtype: float|np.ndarray
-    """
-    if rule == "1pt":
-      return self.compute_volume_1pt_rule(xe)
-    elif rule == "3x2pt":
-      return self.compute_volume_3x2pt_rule(xe)
-    else:
-      raise ValueError(f"Unknown quadrature rule '{rule}' for volume computation. Supported rules are '1pt' and '3x2pt'.")
-  
