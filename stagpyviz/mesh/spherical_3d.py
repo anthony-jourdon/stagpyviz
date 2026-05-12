@@ -2,6 +2,11 @@ import pyvista as pvs
 import numpy as np
 from time import perf_counter
 
+try:
+  from ..elements import Element
+except ImportError:
+  from stagpyviz.elements import Element
+
 class UnstructuredSphere(pvs.UnstructuredGrid):
   """
   Unstructured grid class for spherical meshes. 
@@ -36,9 +41,13 @@ class UnstructuredSphere(pvs.UnstructuredGrid):
   """
   def __init__(self, *args, deep:bool=False, **kwargs) -> None:
     super().__init__(*args, deep=deep, **kwargs)
-    self._points_spherical    = None
-    self._centroids           = None
-    self._centroids_spherical = None
+    # Keep the element selected by subclasses (e.g., ShellMesh, YinYangMesh).
+    # Fallback to the generic Element only when nothing was set upstream.
+    if not hasattr(self, "elements") or self.elements is None:
+      self.elements:Element = kwargs.pop("elements", Element())
+    self._points_spherical     = None
+    self._centroids            = None
+    self._centroids_spherical  = None
     return
   
   def is_point_field(self, field:np.ndarray) -> bool:
@@ -327,9 +336,39 @@ class UnstructuredSphere(pvs.UnstructuredGrid):
       Ni_centroid = self.elements.Ni_centroid()  # (nodes_per_el,)
       field_el = field[ elidx ]  # (number_of_cells, nodes_per_el)
       # Compute the average value of the field at the nodes of each element
-      field_centroid = np.einsum('k,ek->e', Ni_centroid, field_el)  # (number_of_cells,)
+      field_centroid = np.einsum('k,ek...->e...', Ni_centroid, field_el)  # (number_of_cells,)
       t1 = perf_counter()
       print(f"Field values at element centroids computed in {t1-t0:g} seconds")
       return field_centroid
     else:
       raise ValueError(f"Input field has incompatible shape. Mesh ncells: {self.number_of_cells}, npoints: {self.number_of_points}, field shape: {field.shape}")
+    
+  def cell_data_to_point_data(self, pass_cell_data:bool=False) -> None:
+    """
+    Convert all cell data to point data on the mesh.
+    
+    :param bool pass_cell_data:
+      If True, the cell data will be kept in the mesh after conversion.
+      If False, the cell data will be removed from the mesh after conversion.
+    """
+    point_mesh = super().cell_data_to_point_data()
+    for f in point_mesh.point_data:
+      if pass_cell_data == False and f in self.cell_data:
+        self.cell_data.pop(f)
+      self.point_data[f] = point_mesh.point_data[f]
+    return
+  
+  def point_data_to_cell_data(self, pass_point_data:bool=False) -> None:
+    """
+    Convert all point data to cell data on the mesh.
+    
+    :param bool pass_point_data:
+      If True, the point data will be kept in the mesh after conversion.
+      If False, the point data will be removed from the mesh after conversion.
+    """
+    cell_mesh = super().point_data_to_cell_data()
+    for f in cell_mesh.cell_data:
+      if pass_point_data == False and f in self.point_data:
+        self.point_data.pop(f)
+      self.cell_data[f] = cell_mesh.cell_data[f]
+    return
