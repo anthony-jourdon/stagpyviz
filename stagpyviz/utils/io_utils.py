@@ -31,13 +31,14 @@ class IOutils:
     filelist = {
       "composition": "c",
       "divergence" : "div",
+      "density"    : "rho",
       "e2"         : "ed",
       "viscosity"  : "eta",
       "nrc"        : "nrc", 
       "primordial" : "prm",
       "proterozoic": "prot", 
       "stress"     : "str",
-      "temperature": "t",
+      "temperature": ("t", "T"),
       "tracer"     : "tra",
       "vorticity"  : "vor",
       "velocity"   : "vp",
@@ -89,13 +90,14 @@ class IOutils:
     self.filelist = {
       "composition": "c",
       "divergence": "div",
+      "density": "rho",
       "e2" : "ed",
       "nrc": "nrc", # ??
       "pressure": "vp", # pressure is stored in the 4th component of the velocity file
       "primordial": "prm",
       "proterozoic": "prot", # ??
       "stress" : "str",
-      "temperature": "t",
+      "temperature": ("t", "T"),
       "tracer": "tra",
       "velocity": "vp",
       "viscosity": "eta",

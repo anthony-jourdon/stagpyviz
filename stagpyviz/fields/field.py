@@ -50,7 +50,19 @@ class StagField(Field):
     :rtype: np.ndarray|None
     """
     io_utils = self.io_utils
-    fname = f"{io_utils.model}_{io_utils.filelist[self.name]}{str(io_utils.step).zfill(5)}"
+    raw_name = io_utils.filelist[self.name]
+    if isinstance(raw_name, tuple) or isinstance(raw_name, list):
+      for raw_name_i in raw_name:
+        fname_i = f"{io_utils.model}_{raw_name_i}{str(io_utils.step).zfill(5)}"
+        full_fname_i = os.path.join(io_utils.model_dir,fname_i)
+        if os.path.exists(full_fname_i):
+          raw_name = raw_name_i
+          break
+      else:
+        print(f"\t\tNone of the possible file names {raw_name} for field '{self.name}' were found in {io_utils.model_dir}, ignoring this field.")
+        return None
+
+    fname = f"{io_utils.model}_{raw_name}{str(io_utils.step).zfill(5)}"
     # check file existence
     full_fname = os.path.join(io_utils.model_dir,fname)
     if not os.path.exists(full_fname): 
@@ -471,6 +483,7 @@ def fields_instances(io_utils:IOutils, mesh:YinYangMesh, scalings:dict[str, Scal
   field_classes = {}
   field_classes["composition"] = StagField("composition", io_utils, mesh)
   field_classes["divergence"]  = StagField("divergence", io_utils, mesh, scalings.get("strain_rate", None))
+  field_classes["density"]     = StagField("density", io_utils, mesh, scalings.get("density", None))
   field_classes["e2"]          = StagField("e2", io_utils, mesh, scalings.get("strain_rate", None))
   field_classes["nrc"]         = StagField("nrc", io_utils, mesh) # don't know what is this field
   field_classes["primordial"]  = StagField("primordial", io_utils, mesh)
