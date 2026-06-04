@@ -50,23 +50,9 @@ class StagField(Field):
     :rtype: np.ndarray|None
     """
     io_utils = self.io_utils
-    raw_name = io_utils.filelist[self.name]
-    if isinstance(raw_name, tuple) or isinstance(raw_name, list):
-      for raw_name_i in raw_name:
-        fname_i = f"{io_utils.model}_{raw_name_i}{str(io_utils.step).zfill(5)}"
-        full_fname_i = os.path.join(io_utils.model_dir,fname_i)
-        if os.path.exists(full_fname_i):
-          raw_name = raw_name_i
-          break
-      else:
-        print(f"\t\tNone of the possible file names {raw_name} for field '{self.name}' were found in {io_utils.model_dir}, ignoring this field.")
-        return None
-
-    fname = f"{io_utils.model}_{raw_name}{str(io_utils.step).zfill(5)}"
-    # check file existence
-    full_fname = os.path.join(io_utils.model_dir,fname)
-    if not os.path.exists(full_fname): 
-      print(f"\t\tFile {full_fname} not found, ignoring field {self.name}.")
+    full_fname = io_utils.get_field_filename(self.name, io_utils.step)
+    if full_fname is None:
+      print(f"\t\tFile not found, ignoring field \"{self.name}\".")
       return None
     header, data = read_stag_bin(full_fname)
     self.io_utils.time = header["time"]
@@ -435,6 +421,35 @@ class SphericalVectorGradient(DerivedField):
       self.values[...,b] = self.mesh.vector_cartesian_to_spherical(grad_x_fs[...,b])
     return self.values
 
+class StagSurfaceField(StagField):
+  """
+  Special class to process StagYY fields defined only at the surface and at the CMB.
+  These fields have the same structure than regular YinYang fields but they are only defined on 2 radial layers.
+
+  To properly process them we make use of an intermediate :py:class:`YinYangMesh <stagpyviz.YinYangMesh>` 
+  that is reconstructed only with the surface and CMB layers, and then we transfer the field to the volume mesh.
+  
+  """
+  def __init__(self, name:str, io_utils:IOutils, volume_mesh:YinYangMesh, surface_mesh:YinYangMesh, scaling:Scaling|None=None):
+    super().__init__(name, io_utils, surface_mesh, scaling)
+    self.volume_mesh = volume_mesh
+    return
+  
+  def add_to_mesh(self):
+    # Add the field to the "surface" mesh i.e., the 2 layers Yin Yang mesh
+    super().add_to_mesh()
+    # Now transfer to the volume mesh
+    dtype = self.mesh[self.name].dtype
+    bs    = 1
+    if self.mesh[self.name].ndim == 2:
+      bs = self.mesh[self.name].shape[1]
+    self.volume_mesh[self.name] = self.volume_mesh.create_point_field(bs=bs, dtype=dtype)
+    for k in range(0,2):
+      s_pidx = self.mesh.get_radial_indices(k)
+      v_pidx = self.volume_mesh.get_radial_indices( k*(self.volume_mesh.grid_dimensions[2] - 1) )
+      self.volume_mesh[self.name][v_pidx] = self.mesh[self.name][s_pidx]
+    return 
+
 def fields_instances(io_utils:IOutils, mesh:YinYangMesh, scalings:dict[str, Scaling]={}) -> dict[str, StagField]:
   """
   Function to create and return a dictionary of field instances 
@@ -459,6 +474,7 @@ def fields_instances(io_utils:IOutils, mesh:YinYangMesh, scalings:dict[str, Scal
     field_classes = {}
     field_classes["composition"] = StagField("composition", io_utils, mesh)
     field_classes["divergence"]  = StagField("divergence", io_utils, mesh, scalings.get("strain_rate", None))
+    field_classes["density"]     = StagField("density", io_utils, mesh, scalings.get("density", None))
     field_classes["e2"]          = StagField("e2", io_utils, mesh, scalings.get("strain_rate", None))
     field_classes["nrc"]         = StagField("nrc", io_utils, mesh) # don't know what is this field
     field_classes["primordial"]  = StagField("primordial", io_utils, mesh)
@@ -467,6 +483,8 @@ def fields_instances(io_utils:IOutils, mesh:YinYangMesh, scalings:dict[str, Scal
     field_classes["temperature"] = StagField("temperature", io_utils, mesh, scalings.get("temperature", None))
     field_classes["viscosity"]   = StagField("viscosity", io_utils, mesh, scalings.get("viscosity", None))
     field_classes["vorticity"]   = StagField("vorticity", io_utils, mesh, scalings.get("strain_rate", None)) # check units of this field
+    field_classes["basalt"]      = StagField("basalt", io_utils, mesh)
+    field_classes["harzburgite"] = StagField("harzburgite", io_utils, mesh)
 
     field_classes["pressure"]    = Pressure("pressure", io_utils, mesh, scalings.get("pressure", None))
     field_classes["velocity"]    = Velocity("velocity", io_utils, mesh, scalings.get("velocity", None))
@@ -505,6 +523,13 @@ def fields_instances(io_utils:IOutils, mesh:YinYangMesh, scalings:dict[str, Scal
   field_classes["grad_P_r"]    = SphericalField("grad_P_r", io_utils, mesh, field_classes["grad_P"])
   field_classes["grad_v"]      = CartesianGradient("grad_v", io_utils, mesh, field_classes["velocity"])
   field_classes["grad_v_r"]    = SphericalVectorGradient("grad_v_r", io_utils, mesh, field_classes["velocity"])
+
+  return field_classes
+
+def surface_fields_instances(io_utils:IOutils, volume_mesh:YinYangMesh, surface_mesh:YinYangMesh, scalings:dict[str, Scaling]={}) -> dict[str, StagSurfaceField]:
+  field_classes = {}
+  field_classes["topography"] = StagSurfaceField("topography", io_utils, volume_mesh, surface_mesh, scalings.get("length", None))
+  field_classes["heatflux"]   = StagSurfaceField("heatflux",   io_utils, volume_mesh, surface_mesh, scalings.get("heat_flux", None))
 
   return field_classes
   
