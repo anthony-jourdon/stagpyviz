@@ -140,12 +140,15 @@ def process_model(iou:spv.IOutils, scaling_factors:dict[str, spv.Scaling]) -> No
   # Generate the mesh
   raw_field = iou.filelist[iou.output_fields[0]]
   if isinstance(raw_field, tuple):
+    found = False
     for raw_i in raw_field:
       fname = f"{iou.model}_{raw_i}{str(iou.step).zfill(5)}"
+      print(f"Checking for file {os.path.join(iou.model_dir,fname)} to generate the mesh...")
       if os.path.exists(os.path.join(iou.model_dir,fname)):
         raw_field = raw_i
+        found = True
         break
-    else:
+    if not found:
       serr = f"None of the possible raw fields {iou.filelist[iou.output_fields[0]]} were found, cannot generate the mesh."
       raise FileNotFoundError(serr)
 
@@ -273,11 +276,12 @@ def main():
   pvd = paths.get("pvd", default_pvd)
 
   output_fields:list[str] = fields["process"]
-  regions_list  = fields.get("regions", ["composition"])
-  for region in regions_list:
-    if region in fields["process"]:
-      output_fields.append("regions")
-      break
+  regions_list  = fields.get("regions", None)
+  if regions_list is not None:
+    for region in regions_list:
+      if region in fields["process"]:
+        output_fields.append("regions")
+        break
 
   step       = user["steps"].get("step", None)
   reset      = user["steps"].get("reset", False)
