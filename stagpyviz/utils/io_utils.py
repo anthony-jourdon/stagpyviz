@@ -29,20 +29,22 @@ class IOutils:
   .. code-block:: python
 
     filelist = {
+      "basalt":      "bs",
       "composition": "c",
-      "divergence" : "div",
-      "density"    : "rho",
-      "e2"         : "ed",
-      "viscosity"  : "eta",
-      "nrc"        : "nrc", 
-      "primordial" : "prm",
-      "proterozoic": "prot", 
-      "stress"     : "str",
+      "density":     "rho",
+      "divergence":  "div",
+      "e2" :         "ed",
+      "harzburgite": "hz",
+      "nrc":         "nrc", # ??
+      "pressure":    "vp", # pressure is stored in the 4th component of the velocity file
+      "primordial":  "prm",
+      "proterozoic": "prot",
+      "stress" :     "str",
       "temperature": ("t", "T"),
-      "tracer"     : "tra",
-      "vorticity"  : "vor",
-      "velocity"   : "vp",
-      "pressure"   : "vp", # pressure is stored in the 4th component of the velocity file
+      "tracer":      "tra",
+      "velocity":    "vp",
+      "viscosity":   "eta",
+      "vorticity":   "vor"
     }
 
   """
@@ -88,20 +90,22 @@ class IOutils:
     self.reset_fields:bool = kwargs.get("reset_fields", False)
 
     self.filelist = {
+      "basalt":      "bs",
       "composition": "c",
-      "divergence": "div",
-      "density": "rho",
-      "e2" : "ed",
-      "nrc": "nrc", # ??
-      "pressure": "vp", # pressure is stored in the 4th component of the velocity file
-      "primordial": "prm",
-      "proterozoic": "prot", # ??
-      "stress" : "str",
+      "density":     "rho",
+      "divergence":  "div",
+      "e2" :         "ed",
+      "harzburgite": "hz",
+      "nrc":         "nrc", # ??
+      "pressure":    "vp", # pressure is stored in the 4th component of the velocity file
+      "primordial":  "prm",
+      "proterozoic": "prot",
+      "stress" :     "str",
       "temperature": ("t", "T"),
-      "tracer": "tra",
-      "velocity": "vp",
-      "viscosity": "eta",
-      "vorticity": "vor"
+      "tracer":      "tra",
+      "velocity":    "vp",
+      "viscosity":   "eta",
+      "vorticity":   "vor"
     }
     return
   

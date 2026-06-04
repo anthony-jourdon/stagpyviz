@@ -492,6 +492,8 @@ def fields_instances(io_utils:IOutils, mesh:YinYangMesh, scalings:dict[str, Scal
   field_classes["temperature"] = StagField("temperature", io_utils, mesh, scalings.get("temperature", None))
   field_classes["viscosity"]   = StagField("viscosity", io_utils, mesh, scalings.get("viscosity", None))
   field_classes["vorticity"]   = StagField("vorticity", io_utils, mesh, scalings.get("strain_rate", None)) # check units of this field
+  field_classes["basalt"]      = StagField("basalt", io_utils, mesh)
+  field_classes["harzburgite"] = StagField("harzburgite", io_utils, mesh)
 
   field_classes["pressure"]    = Pressure("pressure", io_utils, mesh, scalings.get("pressure", None))
   field_classes["velocity"]    = Velocity("velocity", io_utils, mesh, scalings.get("velocity", None))
