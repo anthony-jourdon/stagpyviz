@@ -24,11 +24,149 @@ class IOutils:
   :param bool reset_fields: Boolean indicating whether to reset the timeseries, default: False.
   :param str prefix: Prefix to be added to the output file names, default: "".
 
+  :Attributes:
+
+    .. py:attribute:: model
+
+      Name of the model.
+
+      :type: str
+      :canonical: stagpyviz.IOutils.model
+
+    .. py:attribute:: mdir
+
+      Name of the model directory.
+
+      :type: str
+      :canonical: stagpyviz.IOutils.mdir
+
+    .. py:attribute:: basedir
+
+      Absolute path to the directory containing the model directory.
+
+      :type: str
+      :canonical: stagpyviz.IOutils.basedir
+
+    .. py:attribute:: model_dir
+
+      Absolute path to the model directory. Constructed from basedir and mdir.
+
+      :type: str
+      :canonical: stagpyviz.IOutils.model_dir
+
+    .. py:attribute:: output_dir
+
+      Absolute path to the output directory.
+
+      :type: str
+      :canonical: stagpyviz.IOutils.output_dir
+
+    .. py:attribute:: output_fields
+
+      List of fields that can be retrieved from binary files output by StagYY.
+      
+      :type: list[str]
+      :canonical: stagpyviz.IOutils.output_fields
+
+    .. py:attribute:: pvd
+
+      Name of the output pvd file.
+
+      :type: str
+      :canonical: stagpyviz.IOutils.pvd
+
+    .. py:attribute:: prefix
+
+      Prefix to be added to the output file names.
+
+      :type: str
+      :canonical: stagpyviz.IOutils.prefix
+
+    .. py:attribute:: time
+
+      Time value for the current step. Initialized to None, filled when processing the binary files.
+
+      :type: float|None
+      :canonical: stagpyviz.IOutils.time
+
+    .. py:attribute:: timeseries
+
+      Dictionary to store the time series information to be written in the pvd file. Initialized with empty lists for "time" and "step".
+
+      :type: dict[str, list]
+      :canonical: stagpyviz.IOutils.timeseries
+
+    .. py:attribute:: regions
+
+      List of region fields to be merged into a single regions field in the output mesh.
+
+      :type: list[str]
+      :canonical: stagpyviz.IOutils.regions
+
+    .. py:attribute:: is_surface
+
+      Boolean indicating whether to output the surface (True) or the volume (False).
+
+      :type: bool
+      :canonical: stagpyviz.IOutils.is_surface
+
+    .. py:attribute:: step
+
+      Step number. Initialized to provided step argument, or None if not provided.
+
+      :type: int|None
+      :canonical: stagpyviz.IOutils.step
+
+    .. py:attribute:: step_start
+
+      Step number from which to start processing. Initialized to provided step_start argument, or 0 if not provided.
+
+      :type: int
+      :canonical: stagpyviz.IOutils.step_start
+
+    .. py:attribute:: step_end
+
+      Step number at which to end processing. Initialized to provided step_end argument, or None if not provided.
+
+      :type: int|None
+      :canonical: stagpyviz.IOutils.step_end
+
+    .. py:attribute:: steps_idx
+
+      Numpy array of step numbers to process, generated from step_start, step_end and dstep. Initialized to None if step_end is not provided.
+
+      :type: np.ndarray|None
+      :canonical: stagpyviz.IOutils.steps_idx
+
+    .. py:attribute:: volume_fields
+
+      Dictionary mapping the names of the volume fields that can be retrieved from binary files output by StagYY 
+      to their raw names in the binary files.
+
+      :type: dict[str, str|tuple[str]]
+      :canonical: stagpyviz.IOutils.volume_fields
+
+    .. py:attribute:: surface_fields
+
+      Dictionary mapping the names of the surface fields that can be retrieved from binary files output by StagYY 
+      to their raw names in the binary files.
+
+      :type: dict[str, str|tuple[str]]
+      :canonical: stagpyviz.IOutils.surface_fields
+
+    .. py:attribute:: filelist
+
+      Dictionary mapping the names of all the fields that can be retrieved from binary files output by StagYY
+      (both volume and surface fields) to their raw names in the binary files.
+
+      :type: dict[str, str|tuple[str]]
+      :canonical: stagpyviz.IOutils.filelist
+
   Currently the supported fields that can be retrieved from binary files output by StagYY are:
 
   .. code-block:: python
 
-    filelist = {
+    volume_fields = {
       "basalt":      "bs",
       "composition": "c",
       "density":     "rho",
@@ -45,6 +183,16 @@ class IOutils:
       "velocity":    "vp",
       "viscosity":   "eta",
       "vorticity":   "vor"
+    }
+
+    surface_fields = {
+      "topography":  "cs",
+      "heatflux":    "hf",
+    }
+
+    filelist = {
+      **volume_fields,
+      **surface_fields
     }
 
   """
@@ -89,7 +237,7 @@ class IOutils:
     self.regions:list[str] = kwargs.get("regions", ["composition"])
     self.reset_fields:bool = kwargs.get("reset_fields", False)
 
-    self.filelist = {
+    self.volume_fields = {
       "basalt":      "bs",
       "composition": "c",
       "density":     "rho",
@@ -107,7 +255,72 @@ class IOutils:
       "viscosity":   "eta",
       "vorticity":   "vor"
     }
+
+    self.surface_fields = {
+      "topography":  "cs",
+      "heatflux":    "hf",
+    }
+
+    self.filelist = {
+      **self.volume_fields,
+      **self.surface_fields
+    }
     return
+  
+  def compose_filename(self, field:str, step:int) -> str|None:
+    """
+    Return the path to the binary file corresponding to the given field and step number, if it exists, otherwise return None.
+    The filename is reconstructed such that:
+
+    .. code-block:: python
+
+      fname = f"{model_name}_{field}{step:05d}"
+      fpath = os.path.join(basedir, model_dir, fname)
+
+    :param str field: StagYY name of the field to retrieve.
+    :param int step: Step number to retrieve.
+    :return str|None: Path to the binary file corresponding to the given field and step number, if it exists, otherwise None.
+
+    """
+    fname = f"{self.model}_{field}{step:05d}"
+    fpath = os.path.join(self.model_dir, fname)
+    print(f"Checking for file: {fpath}")
+    if os.path.exists(fpath):
+      print("\tFound.")
+      return fpath
+    else:
+      print("\tNot found.")
+      return None
+
+  def get_field_filename(self, field:str, step:int) -> str|None:
+    """
+    Return the path to the binary file corresponding to the given field and step number, if it exists, otherwise return None.
+    This function uses the filelist dictionary to find the raw name of the field, and then uses the 
+    :py:meth:`compose_filename <stagpyviz.IOutils.compose_filename>` method to reconstruct the filename and check if it exists. 
+    If the field is not found in the filelist, or if the file does not exist, None is returned.
+
+    :param str field: Name from the :py:attr:`filelist <stagpyviz.IOutils.filelist>` of the field to retrieve.
+    :param int step: Step number to retrieve.
+    :return str|None: Path to the binary file corresponding to the given field and step number, if it exists, otherwise None.
+    """
+    raw_name = self.filelist.get(field, None)
+    if raw_name is None:
+      print(f"Field {field} not found in filelist.")
+      return None
+    
+    if isinstance(raw_name, tuple):
+      for name in raw_name:
+        fpath = self.compose_filename(name, step)
+        if fpath is not None:
+          return fpath
+      print(f"None of the possible filenames for field {field} were found.")
+      return None
+    else:
+      fpath = self.compose_filename(raw_name, step)
+      if fpath is not None:
+        return fpath
+      else:
+        return None
   
   def __str__(self) -> str:
     s  = f"Model: {self.model}\n"
