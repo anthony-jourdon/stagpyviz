@@ -138,26 +138,29 @@ def process_model(iou:spv.IOutils, scaling_factors:dict[str, spv.Scaling]) -> No
     use_case = "single_step"
 
   # Generate the mesh
-  raw_field = iou.filelist[iou.output_fields[0]]
-  if isinstance(raw_field, tuple):
-    found = False
-    for raw_i in raw_field:
-      fname = f"{iou.model}_{raw_i}{str(iou.step).zfill(5)}"
-      print(f"Checking for file {os.path.join(iou.model_dir,fname)} to generate the mesh...")
-      if os.path.exists(os.path.join(iou.model_dir,fname)):
-        raw_field = raw_i
-        found = True
+  #fname = iou.get_field_filename(iou.output_fields[0], iou.step)
+  for field in iou.output_fields:
+    if field in iou.volume_fields:
+      fname = iou.get_field_filename(field, iou.step)
+      if fname is not None:
         break
-    if not found:
-      serr = f"None of the possible raw fields {iou.filelist[iou.output_fields[0]]} were found, cannot generate the mesh."
-      raise FileNotFoundError(serr)
-
-  fname = f"{iou.model}_{raw_field}{str(iou.step).zfill(5)}"
+  if fname is None:
+    raise FileNotFoundError(f"None of the files for the requested fields {iou.output_fields} were found for step {iou.step}. Cannot generate mesh.")
   print(f"Generating volume mesh using file {fname}...")
-  mesh = spv.YinYangMesh(os.path.join(iou.model_dir,fname),scaling=scaling_factors.get("length", None))
+  mesh = spv.YinYangMesh(fname, scaling=scaling_factors.get("length", None))
   # create the available class instances for the fields that can be added to the mesh
-  #class_fields = class_instances(mesh, iou)
   class_fields = spv.fields_instances(iou, mesh, scaling_factors)
+
+  # check if surface fields are requested
+  for field in iou.output_fields:
+    if field in iou.surface_fields:
+      fname = iou.get_field_filename(field, iou.step)
+      if fname is not None:
+        print(f"Generating mesh for surface fields using file {fname}...")
+        mesh_s = spv.YinYangMesh(fname, scaling=scaling_factors.get("length", None))
+        surface_class_fields = spv.surface_fields_instances(iou, mesh, mesh_s, scaling_factors)
+        class_fields.update(surface_class_fields)
+        break
 
   match use_case:
     case "single_step":
