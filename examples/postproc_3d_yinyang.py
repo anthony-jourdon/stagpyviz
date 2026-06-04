@@ -26,7 +26,7 @@ def add_fields_to_mesh(mesh:spv.YinYangMesh, fields_to_add:list[str], class_fiel
         mesh["regions"] += (mesh[region] > 0.1) * (regions.index(region) + 1)
         mesh.point_data.pop(region)
     else:
-      mesh["regions"] = mesh[regions[0]]
+      mesh["regions"] = mesh[regions[0]].astype(np.int32)
       
   # Now remove any extra field that was added to mesh but is not in the list of fields to output
   for field in mesh.point_data:
@@ -138,7 +138,18 @@ def process_model(iou:spv.IOutils, scaling_factors:dict[str, spv.Scaling]) -> No
     use_case = "single_step"
 
   # Generate the mesh
-  fname = f"{iou.model}_{iou.filelist[iou.output_fields[0]]}{str(iou.step).zfill(5)}"
+  raw_field = iou.filelist[iou.output_fields[0]]
+  if isinstance(raw_field, tuple):
+    for raw_i in raw_field:
+      fname = f"{iou.model}_{raw_i}{str(iou.step).zfill(5)}"
+      if os.path.exists(os.path.join(iou.model_dir,fname)):
+        raw_field = raw_i
+        break
+    else:
+      serr = f"None of the possible raw fields {iou.filelist[iou.output_fields[0]]} were found, cannot generate the mesh."
+      raise FileNotFoundError(serr)
+
+  fname = f"{iou.model}_{raw_field}{str(iou.step).zfill(5)}"
   print(f"Generating volume mesh using file {fname}...")
   mesh = spv.YinYangMesh(os.path.join(iou.model_dir,fname),scaling=scaling_factors.get("length", None))
   # create the available class instances for the fields that can be added to the mesh
