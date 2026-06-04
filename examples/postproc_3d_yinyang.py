@@ -26,7 +26,7 @@ def add_fields_to_mesh(mesh:spv.YinYangMesh, fields_to_add:list[str], class_fiel
         mesh["regions"] += (mesh[region] > 0.1) * (regions.index(region) + 1)
         mesh.point_data.pop(region)
     else:
-      mesh["regions"] = mesh[regions[0]]
+      mesh["regions"] = mesh[regions[0]].astype(np.int32)
       
   # Now remove any extra field that was added to mesh but is not in the list of fields to output
   for field in mesh.point_data:
@@ -138,12 +138,29 @@ def process_model(iou:spv.IOutils, scaling_factors:dict[str, spv.Scaling]) -> No
     use_case = "single_step"
 
   # Generate the mesh
-  fname = f"{iou.model}_{iou.filelist[iou.output_fields[0]]}{str(iou.step).zfill(5)}"
+  #fname = iou.get_field_filename(iou.output_fields[0], iou.step)
+  for field in iou.output_fields:
+    if field in iou.volume_fields:
+      fname = iou.get_field_filename(field, iou.step)
+      if fname is not None:
+        break
+  if fname is None:
+    raise FileNotFoundError(f"None of the files for the requested fields {iou.output_fields} were found for step {iou.step}. Cannot generate mesh.")
   print(f"Generating volume mesh using file {fname}...")
-  mesh = spv.YinYangMesh(os.path.join(iou.model_dir,fname),scaling=scaling_factors.get("length", None))
+  mesh = spv.YinYangMesh(fname, scaling=scaling_factors.get("length", None))
   # create the available class instances for the fields that can be added to the mesh
-  #class_fields = class_instances(mesh, iou)
   class_fields = spv.fields_instances(iou, mesh, scaling_factors)
+
+  # check if surface fields are requested
+  for field in iou.output_fields:
+    if field in iou.surface_fields:
+      fname = iou.get_field_filename(field, iou.step)
+      if fname is not None:
+        print(f"Generating mesh for surface fields using file {fname}...")
+        mesh_s = spv.YinYangMesh(fname, scaling=scaling_factors.get("length", None))
+        surface_class_fields = spv.surface_fields_instances(iou, mesh, mesh_s, scaling_factors)
+        class_fields.update(surface_class_fields)
+        break
 
   match use_case:
     case "single_step":
@@ -262,11 +279,12 @@ def main():
   pvd = paths.get("pvd", default_pvd)
 
   output_fields:list[str] = fields["process"]
-  regions_list  = fields.get("regions", ["composition"])
-  for region in regions_list:
-    if region in fields["process"]:
-      output_fields.append("regions")
-      break
+  regions_list  = fields.get("regions", None)
+  if regions_list is not None:
+    for region in regions_list:
+      if region in fields["process"]:
+        output_fields.append("regions")
+        break
 
   step       = user["steps"].get("step", None)
   reset      = user["steps"].get("reset", False)

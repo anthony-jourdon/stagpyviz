@@ -63,24 +63,40 @@ class Scaling:
   def dim(self, field:np.ndarray) -> np.ndarray:
     """
     Scale a non-dimensional field to dimensional using the scaling factor.
+
+    :param numpy.ndarray field: Non-dimensional field to be scaled to dimensional
+
+    :return: Dimensional field obtained by scaling the input non-dimensional field
+    :rtype: numpy.ndarray
     """
     return field * self.factor
   
   def a_dim(self, field:np.ndarray) -> np.ndarray:
     """
     Scale a dimensional field to non-dimensional using the scaling factor.
+
+    :param numpy.ndarray field: Dimensional field to be scaled to non-dimensional
+
+    :return: Non-dimensional field obtained by scaling the input dimensional field
+    :rtype: numpy.ndarray
     """
     return field / self.factor
   
   def to(self, field:np.ndarray, unit:str|Unit) -> np.ndarray:
     """
-    Convert a dimensional field to a different unit using the `pint`_ package for unit conversions.
+    Convert a dimensional field from its base unit (the unit associated with the scaling factor) 
+    to a different unit using the `pint`_ package for unit conversions.
 
     .. warning::
       Units must be compatible for conversion, 
       i.e. they must represent the same physical quantity 
       (e.g. ``"K"`` and ``"degC"`` are compatible, but ``"K"`` and ``"m"`` are not).
-    
+
+    :param numpy.ndarray field: Dimensional field in its base unit to be converted to another unit
+    :param str|pint.Unit unit: Target unit for the conversion
+
+    :return: Field converted to the target unit
+    :rtype: numpy.ndarray
     """
     q:Quantity = units.Quantity(field, self.unit)
     q = q.to(unit)
@@ -96,6 +112,11 @@ class Scaling:
       i.e. they must represent the same physical quantity 
       (e.g. ``"K"`` and ``"degC"`` are compatible, but ``"K"`` and ``"m"`` are not).
     
+    :param numpy.ndarray field: Dimensional field to be converted to the base unit
+    :param str|pint.Unit unit: Unit of the input field
+
+    :return: Field converted to the base unit of the scaling factor
+    :rtype: numpy.ndarray
     """
     q:Quantity = units.Quantity(field, unit)
     q = q.to(self.unit)

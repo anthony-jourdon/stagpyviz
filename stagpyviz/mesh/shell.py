@@ -117,7 +117,8 @@ class ShellMesh(UnstructuredSphere):
       t1 = perf_counter()
       print(f"Shell mesh created from points in {t1-t0:g} seconds")
     else:
-      raise ValueError("ShellMesh constructor requires a VTU file path, an UnstructuredGrid, or a points array.")
+      super().__init__(*args, deep=deep, **kwargs)
+      #raise ValueError("ShellMesh constructor requires a VTU file path, an UnstructuredGrid, or a points array.")
     return
   
   @property
@@ -229,6 +230,41 @@ class ShellMesh(UnstructuredSphere):
           raise ValueError(f"Unsupported quadrature rule: {rule}. Supported values are '1pt' and '3pt'.")
     else:
       raise ValueError(f"Field of shape {field.shape} must be either a point field with shape ({self.number_of_points},) or a cell field with shape ({self.number_of_cells},) to be integrated with integrate_over_cell()")
+
+  def connectivity(self, *args, **kwargs) -> tuple[np.ndarray, np.ndarray]:
+    """
+    Overload of pyvista `connectivity`_ filter to return an array of region IDs 
+    for each point in the mesh instead of a new mesh containing only the connected region.
+    Non connected points will be assigned a region ID of -1.
+    See pyvista `connectivity`_ documentation for details on the supported arguments and options.
+
+    :return: 
+      A tuple of arrays containing the region IDs for each point and cell in the mesh.
+      Points and cells that are not part of any connected region are assigned a value of -1.
+    :rtype: tuple[numpy.ndarray, numpy.ndarray]
+
+    .. _connectivity: https://docs.pyvista.org/api/core/_autosummary/pyvista.datasetfilters.connectivity
+    """
+    # Keep a stable mapping to original point and cell indices through the filter chain.
+    self.point_data["original_pidx"] = np.arange(self.number_of_points, dtype=np.int64)
+    self.cell_data["original_cidx"]  = np.arange(self.number_of_cells,  dtype=np.int64)
+    region_pids = np.full(self.number_of_points, -1, dtype=np.int64)
+    region_cids = np.full(self.number_of_cells,  -1, dtype=np.int64)
+    # call pyvista connectivity filter to extract connected regions and their IDs
+    conn = super().connectivity(*args, **kwargs)
+    # get the original point indices of the subset of points in the connectivity filter output
+    conn_pidx = conn.point_data["original_pidx"]
+    # assign the corresponding region IDs to the full set of points in the mesh
+    region_pids[conn_pidx] = conn.point_data["RegionId"]
+    # get the original cell indices of the subset of cells in the connectivity filter output
+    conn_cidx = conn.cell_data["original_cidx"]
+    # assign the corresponding region IDs to the full set of cells in the mesh
+    region_cids[conn_cidx] = conn.cell_data["RegionId"]
+    # clean up
+    self.point_data.remove("original_pidx")
+    self.cell_data.remove("original_cidx")
+    del conn
+    return region_pids, region_cids
 
   def locate_points(self, points:np.ndarray, max_it:int=1000, tol:float=1e-12) -> tuple[np.ndarray, np.ndarray]:
     print("WARNING: ShellMesh.locate_points may be inaccurate for points near element boundaries.")
