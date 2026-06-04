@@ -200,6 +200,9 @@ class YinYangMesh(UnstructuredSphere):
   
   @property
   def grid_dimensions(self) -> tuple[int,int,int]:
+    """
+    Number of points in the x, y and z directions of the Yin or Yang grid.
+    """
     n = (
       self.header['ntot'][0],
       self.header['ntot'][1],
@@ -209,6 +212,9 @@ class YinYangMesh(UnstructuredSphere):
   
   @property
   def grid_npoints(self) -> int:
+    """
+    Total number of points in the Yin or Yang grid.
+    """
     n = self.grid_dimensions
     return n[0]*n[1]*n[2]
   
