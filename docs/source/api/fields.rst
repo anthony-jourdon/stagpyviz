@@ -25,4 +25,9 @@ the following classes are provided.
 .. autoclass:: stagpyviz.SphericalVectorGradient
   :members:
 
+.. autoclass:: stagpyviz.StagSurfaceField
+  :members:
+
 .. autofunction:: stagpyviz.fields_instances
+
+.. autofunction:: stagpyviz.surface_fields_instances

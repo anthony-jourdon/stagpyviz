@@ -93,6 +93,16 @@ The currently available fields are:
 
 - ``vorticity``: the vorticity field of the velocity field in spherical coordinates with the radial component removed.
 
+- ``density``: the density field.
+
+- ``basalt``: the basalt field.
+
+- ``harzburgite``: the harzburgite field.
+
+- ``topography``: the topography at the surface and at the core-mantle boundary.
+
+- ``heatflux``: the heat flux at the surface and at the core-mantle boundary.
+
 The ``regions`` are a special field. Depending on the stag version regions can be written as 
 separate fields. To group them all under the same field called ``regions``, the user can provide a list 
 of fields to be identified as a region.
