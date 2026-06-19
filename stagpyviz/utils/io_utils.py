@@ -244,6 +244,7 @@ class IOutils:
       "divergence":  "div",
       "e2" :         "ed",
       "harzburgite": "hz",
+      "melting_age": "age",
       "nrc":         "nrc", # ??
       "pressure":    "vp", # pressure is stored in the 4th component of the velocity file
       "primordial":  "prm",
@@ -261,9 +262,15 @@ class IOutils:
       "heatflux":    "hf",
     }
 
+    self.surface_layer_fields = {
+      "crust_thickness": "cr",
+      "drag": "drag"
+    }
+
     self.filelist = {
       **self.volume_fields,
-      **self.surface_fields
+      **self.surface_fields,
+      **self.surface_layer_fields
     }
     return
   

@@ -423,11 +423,14 @@ class SphericalVectorGradient(DerivedField):
 
 class StagSurfaceField(StagField):
   """
-  Special class to process StagYY fields defined only at the surface and at the CMB.
-  These fields have the same structure than regular YinYang fields but they are only defined on 2 radial layers.
+  Special class to process StagYY fields defined only at the surface and possibly also at the CMB.
+  These fields have the same structure than regular YinYang fields but they are only defined on 1 or 2 radial layers.
 
   To properly process them we make use of an intermediate :py:class:`YinYangMesh <stagpyviz.YinYangMesh>` 
-  that is reconstructed only with the surface and CMB layers, and then we transfer the field to the volume mesh.
+  that is reconstructed only with either the surface or the surface and CMB layers, 
+  and then we transfer the field to the volume mesh. 
+  In the volume mesh the field will be zero everywhere except at the layers where it is defined.
+  Therefore the user must know the radial index of the layer where the field is defined in order to properly visualize it.
 
   :param str name: Name of the field.
   :param stagpyviz.IOutils io_utils: Path and file management utilities
@@ -435,11 +438,16 @@ class StagSurfaceField(StagField):
   :param stagpyviz.YinYangMesh surface_mesh: Surface mesh reconstructed as an unstructured grid with only the surface and CMB layers.
   :param stagpyviz.Scaling|None scaling: 
     Scaling factor for the field, if the field is non-dimensional and needs to be scaled to dimensional units, default: None.
-  
+  :param int nlayers: 
+    Number of radial layers where the field is defined, default: 2 (surface and CMB). Can only be 1 (surface) or 2 (surface and CMB).
+
   """
-  def __init__(self, name:str, io_utils:IOutils, volume_mesh:YinYangMesh, surface_mesh:YinYangMesh, scaling:Scaling|None=None):
+  def __init__(self, name:str, io_utils:IOutils, volume_mesh:YinYangMesh, surface_mesh:YinYangMesh, scaling:Scaling|None=None, **kwargs):
     super().__init__(name, io_utils, surface_mesh, scaling)
     self.volume_mesh = volume_mesh
+    self.nlayers = kwargs.get("nlayers", 2)
+    if self.nlayers < 1 or self.nlayers > 2:
+      raise ValueError(f"Invalid number of layers {self.nlayers} for surface field {self.name}. Must be 1 or 2.")
     return
   
   def add_to_mesh(self):
@@ -454,9 +462,10 @@ class StagSurfaceField(StagField):
     if self.mesh[self.name].ndim == 2:
       bs = self.mesh[self.name].shape[1]
     self.volume_mesh[self.name] = self.volume_mesh.create_point_field(bs=bs, dtype=dtype)
-    for k in range(0,2):
+    for k in range(0,self.nlayers):
       s_pidx = self.mesh.get_radial_indices(k)
-      v_pidx = self.volume_mesh.get_radial_indices( k*(self.volume_mesh.grid_dimensions[2] - 1) )
+      layer_idx = (self.volume_mesh.grid_dimensions[2] - 1) * (k - self.nlayers + 2)
+      v_pidx = self.volume_mesh.get_radial_indices( layer_idx )
       self.volume_mesh[self.name][v_pidx] = self.mesh[self.name][s_pidx]
     return 
 
@@ -522,6 +531,7 @@ def fields_instances(io_utils:IOutils, mesh:YinYangMesh, scalings:dict[str, Scal
   field_classes["vorticity"]   = StagField("vorticity", io_utils, mesh, scalings.get("strain_rate", None)) # check units of this field
   field_classes["basalt"]      = StagField("basalt", io_utils, mesh)
   field_classes["harzburgite"] = StagField("harzburgite", io_utils, mesh)
+  field_classes["melting_age"] = StagField("melting_age", io_utils, mesh, scalings.get("time", None))
 
   field_classes["pressure"]    = Pressure("pressure", io_utils, mesh, scalings.get("pressure", None))
   field_classes["velocity"]    = Velocity("velocity", io_utils, mesh, scalings.get("velocity", None))
@@ -539,11 +549,11 @@ def fields_instances(io_utils:IOutils, mesh:YinYangMesh, scalings:dict[str, Scal
 def surface_fields_instances(io_utils:IOutils, volume_mesh:YinYangMesh, surface_mesh:YinYangMesh, scalings:dict[str, Scaling]={}) -> dict[str, StagSurfaceField]:
   """
   Function to create and return a dictionary of field instances 
-  for the surface fields that can be added to the mesh.
+  for the fields defined at the surface and the CMB that can be added to the mesh.
 
   :param stagpyviz.IOutils io_utils: Path and file management utilities
   :param stagpyviz.YinYangMesh volume_mesh: Volume mesh.
-  :param stagpyviz.YinYangMesh surface_mesh: Surface mesh with only the surface and CMB layers.
+  :param stagpyviz.YinYangMesh surface_mesh: Mesh with only the surface and CMB layers.
   :param dict[str, stagpyviz.Scaling] scalings: Dictionary of scaling factors for the fields.
     The keys are the field names and the values are the corresponding :py:class:`Scaling <stagpyviz.Scaling>` instances. 
     Default: empty dictionary, which means that all fields will be added to the mesh without scaling.
@@ -561,22 +571,39 @@ def surface_fields_instances(io_utils:IOutils, volume_mesh:YinYangMesh, surface_
 
   """
   field_classes = {}
-  field_classes["topography"] = StagSurfaceField("topography", io_utils, volume_mesh, surface_mesh, scalings.get("length", None))
-  field_classes["heatflux"]   = StagSurfaceField("heatflux",   io_utils, volume_mesh, surface_mesh, scalings.get("heat_flux", None))
-
+  field_classes["topography"]      = StagSurfaceField("topography", io_utils, volume_mesh, surface_mesh, scalings.get("length", None))
+  field_classes["heatflux"]        = StagSurfaceField("heatflux",   io_utils, volume_mesh, surface_mesh, scalings.get("heat_flux", None))
+  
   return field_classes
   
-  
-  
-  
-  
-  
-  
+def surface_layer_instances(io_utils:IOutils, volume_mesh:YinYangMesh, surface_mesh:YinYangMesh, scalings:dict[str, Scaling]={}) -> dict[str, StagSurfaceField]:
+  """
+  Function to create and return a dictionary of field instances 
+  for the surface fields that can be added to the mesh.
 
-def test():
+  :param stagpyviz.IOutils io_utils: Path and file management utilities
+  :param stagpyviz.YinYangMesh volume_mesh: Volume mesh.
+  :param stagpyviz.YinYangMesh surface_mesh: Mesh with only the surface.
+  :param dict[str, stagpyviz.Scaling] scalings: Dictionary of scaling factors for the fields.
+    The keys are the field names and the values are the corresponding :py:class:`Scaling <stagpyviz.Scaling>` instances. 
+    Default: empty dictionary, which means that all fields will be added to the mesh without scaling.
+  :return: 
+    Dictionary of field instances, where the keys are the field names and the values are the corresponding field classes instances.
+  :rtype: dict[str, StagSurfaceField]
+
+    Current implementation:
+
+  .. code-block:: python
+
+      field_classes = {}
+      field_classes["crust_thickness"] = StagSurfaceField("crust_thickness", io_utils, volume_mesh, surface_mesh, scalings.get("length", None), nlayers=1)
+      field_classes["drag"]            = StagSurfaceField("drag", io_utils, volume_mesh, surface_mesh, nlayers=1)
   
+  """
+  
+  field_classes = {}
 
-  return
-
-if __name__ == "__main__":
-  test()
+  field_classes["crust_thickness"] = StagSurfaceField("crust_thickness", io_utils, volume_mesh, surface_mesh, scalings.get("length", None), nlayers=1)
+  field_classes["drag"]            = StagSurfaceField("drag", io_utils, volume_mesh, surface_mesh, nlayers=1)
+  
+  return field_classes
