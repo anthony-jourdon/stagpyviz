@@ -161,6 +161,17 @@ def process_model(iou:spv.IOutils, scaling_factors:dict[str, spv.Scaling]) -> No
         surface_class_fields = spv.surface_fields_instances(iou, mesh, mesh_s, scaling_factors)
         class_fields.update(surface_class_fields)
         break
+  
+  # check if surface layer fields are requested
+  for field in iou.output_fields:
+    if field in iou.surface_layer_fields:
+      fname = iou.get_field_filename(field, iou.step)
+      if fname is not None:
+        print(f"Generating mesh for surface layer fields using file {fname}...")
+        mesh_l = spv.YinYangMesh(fname, scaling=scaling_factors.get("length", None))
+        surface_layer_class_fields = spv.surface_layer_instances(iou, mesh, mesh_l, scaling_factors)
+        class_fields.update(surface_layer_class_fields)
+        break
 
   match use_case:
     case "single_step":
