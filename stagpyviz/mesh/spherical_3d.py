@@ -13,6 +13,15 @@ class UnstructuredSphere(pvs.UnstructuredGrid):
   Provides methods for Cartesian - Spherical coordinates transformations, as well as vector and gradient transformations.
   Inherits from `pyvista.UnstructuredGrid`_, so all methods and properties of the parent class are available.
 
+  :param args: 
+    Arguments to be passed to the parent class constructor.
+    See `pyvista.UnstructuredGrid`_ for more details.
+  :param bool deep:
+    If True, a deep copy of the input data is made. Default is False.
+  :param kwargs:
+    Keyword arguments to be passed to the parent class constructor.
+    See `pyvista.UnstructuredGrid`_ for more details.
+
   :Attributes:
 
   .. py:attribute:: points_spherical
@@ -36,8 +45,8 @@ class UnstructuredSphere(pvs.UnstructuredGrid):
     
     :type: numpy.ndarray
 
-  :Methods:
-
+  Methods:
+  --------
   """
   def __init__(self, *args, deep:bool=False, **kwargs) -> None:
     super().__init__(*args, deep=deep, **kwargs)
@@ -263,7 +272,7 @@ class UnstructuredSphere(pvs.UnstructuredGrid):
     
     where :math:`\\mathbf{v}_{r}` is the vector field in spherical coordinates,
     :math:`\\mathbf{v}_{x}` is the vector field in Cartesian coordinates,
-    and :math:`\\boldsymbol{R}` is the rotation matrix of the transformomation between Cartesian and Spherical coordinates 
+    and :math:`\\boldsymbol{R}` is the rotation matrix of the transformation between Cartesian and Spherical coordinates 
     (see :py:meth:`rotation_matrix <stagpyviz.UnstructuredSphere.rotation_matrix>`).
 
     :param numpy.ndarray v_cartesian: 
@@ -293,7 +302,7 @@ class UnstructuredSphere(pvs.UnstructuredGrid):
 
     where :math:`\\mathbf{v}_{x}` is the vector field in Cartesian coordinates,
     :math:`\\mathbf{v}_{r}` is the vector field in spherical coordinates,
-    and :math:`\\boldsymbol{R}^T` is the transpose of the rotation matrix of the transformomation between 
+    and :math:`\\boldsymbol{R}^T` is the transpose of the rotation matrix of the transformation between 
     Cartesian and Spherical coordinates (see :py:meth:`rotation_matrix <stagpyviz.UnstructuredSphere.rotation_matrix>`).
 
     :param numpy.ndarray v_spherical: 

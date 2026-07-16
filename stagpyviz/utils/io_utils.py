@@ -31,112 +31,96 @@ class IOutils:
       Name of the model.
 
       :type: str
-      :canonical: stagpyviz.IOutils.model
 
     .. py:attribute:: mdir
 
       Name of the model directory.
 
       :type: str
-      :canonical: stagpyviz.IOutils.mdir
 
     .. py:attribute:: basedir
 
       Absolute path to the directory containing the model directory.
 
       :type: str
-      :canonical: stagpyviz.IOutils.basedir
 
     .. py:attribute:: model_dir
 
       Absolute path to the model directory. Constructed from basedir and mdir.
 
       :type: str
-      :canonical: stagpyviz.IOutils.model_dir
 
     .. py:attribute:: output_dir
 
       Absolute path to the output directory.
 
       :type: str
-      :canonical: stagpyviz.IOutils.output_dir
 
     .. py:attribute:: output_fields
 
       List of fields that can be retrieved from binary files output by StagYY.
       
       :type: list[str]
-      :canonical: stagpyviz.IOutils.output_fields
 
     .. py:attribute:: pvd
 
       Name of the output pvd file.
 
       :type: str
-      :canonical: stagpyviz.IOutils.pvd
 
     .. py:attribute:: prefix
 
       Prefix to be added to the output file names.
 
       :type: str
-      :canonical: stagpyviz.IOutils.prefix
 
     .. py:attribute:: time
 
       Time value for the current step. Initialized to None, filled when processing the binary files.
 
       :type: float|None
-      :canonical: stagpyviz.IOutils.time
 
     .. py:attribute:: timeseries
 
       Dictionary to store the time series information to be written in the pvd file. Initialized with empty lists for "time" and "step".
 
       :type: dict[str, list]
-      :canonical: stagpyviz.IOutils.timeseries
 
     .. py:attribute:: regions
 
       List of region fields to be merged into a single regions field in the output mesh.
 
       :type: list[str]
-      :canonical: stagpyviz.IOutils.regions
 
     .. py:attribute:: is_surface
 
       Boolean indicating whether to output the surface (True) or the volume (False).
 
       :type: bool
-      :canonical: stagpyviz.IOutils.is_surface
 
     .. py:attribute:: step
 
       Step number. Initialized to provided step argument, or None if not provided.
 
       :type: int|None
-      :canonical: stagpyviz.IOutils.step
 
     .. py:attribute:: step_start
 
       Step number from which to start processing. Initialized to provided step_start argument, or 0 if not provided.
 
       :type: int
-      :canonical: stagpyviz.IOutils.step_start
 
     .. py:attribute:: step_end
 
       Step number at which to end processing. Initialized to provided step_end argument, or None if not provided.
 
       :type: int|None
-      :canonical: stagpyviz.IOutils.step_end
 
     .. py:attribute:: steps_idx
 
       Numpy array of step numbers to process, generated from step_start, step_end and dstep. Initialized to None if step_end is not provided.
 
-      :type: np.ndarray|None
-      :canonical: stagpyviz.IOutils.steps_idx
+      :type: numpy.ndarray|None
 
     .. py:attribute:: volume_fields
 
@@ -144,7 +128,6 @@ class IOutils:
       to their raw names in the binary files.
 
       :type: dict[str, str|tuple[str]]
-      :canonical: stagpyviz.IOutils.volume_fields
 
     .. py:attribute:: surface_fields
 
@@ -152,7 +135,6 @@ class IOutils:
       to their raw names in the binary files.
 
       :type: dict[str, str|tuple[str]]
-      :canonical: stagpyviz.IOutils.surface_fields
 
     .. py:attribute:: filelist
 
@@ -160,7 +142,6 @@ class IOutils:
       (both volume and surface fields) to their raw names in the binary files.
 
       :type: dict[str, str|tuple[str]]
-      :canonical: stagpyviz.IOutils.filelist
 
   Currently the supported fields that can be retrieved from binary files output by StagYY are:
 

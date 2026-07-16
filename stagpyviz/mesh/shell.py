@@ -36,6 +36,17 @@ class ShellMesh(UnstructuredSphere):
     The mesh will be created as the convex hull of the provided points, and a ``"neighbors"`` array representing the 
     connectivity of the facets will be added to the cell data.
 
+  
+  :param args: 
+    Arguments to be passed to the parent class constructor.
+    See `pyvista.UnstructuredGrid`_ for more details.
+  :param deep:
+    If True, a deep copy of the input data is made. Default is False.
+  :param kwargs:
+    Keyword arguments to be passed to the parent class constructor.
+    See `pyvista.UnstructuredGrid`_ for more details.
+  
+
   :Attributes:
 
   .. py:attribute:: elements
@@ -74,8 +85,8 @@ class ShellMesh(UnstructuredSphere):
 
     :type: numpy.ndarray
 
-  :Methods:
-  
+  Methods:
+  --------
   """
   def __init__(self, *args, deep:bool=False, **kwargs):
     self.elements:P1_2D_R3 = P1_2D_R3()

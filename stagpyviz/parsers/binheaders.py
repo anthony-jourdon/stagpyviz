@@ -12,7 +12,7 @@ class BinHeader:
   """
   Class to read and extract information from the **32 bits** binary files produced by StagYY.
 
-  :param io.BufferedReader file: A binary file object opened in 'rb' mode.
+  :param io.BufferedReader file: A binary file object opened in ``"rb"`` mode.
 
   :Attributes:
 
@@ -52,8 +52,8 @@ class BinHeader:
 
     :type: dict
 
-  :Methods:
-
+  Methods:
+  --------
   """
   def __init__(self, file:io.BufferedReader):
     self.f:io.BufferedReader = file
@@ -236,13 +236,13 @@ class BinHeader:
   def read_fields(self) -> np.ndarray:
     """
     Read the field data from the binary file. Very inspired from this 
-    `stagpy <https://github.com/StagPython/StagPy/blob/master/src/stagpy/stagyyparsers.py>`_
+    `stagpy <https://github.com/StagPython/StagPy/blob/master/src/stagpy/parsers/bin/field.py>`_
     function.
 
     :return: 
       A 5D numpy array containing the field data, indexed as
       ``(component, x, y, z, block)``.
-    :rtype: np.ndarray
+    :rtype: numpy.ndarray
     """
     if self.header is None:
       raise RuntimeError("Header must be read before reading fields.")
