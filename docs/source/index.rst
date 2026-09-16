@@ -16,9 +16,11 @@ Contents
   api/elements
   api/mesh
   api/parsers
-  api/utils
   api/scaling
   api/fields
+  api/timeseries
+  api/utils
+  api/solid_rotation
 
 .. toctree::
   :maxdepth: 1

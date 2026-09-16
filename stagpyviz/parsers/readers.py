@@ -13,7 +13,7 @@ def read_stag_bin(fname:str) -> tuple[dict, np.ndarray]:
 
   :param str fname: The path to the StagYY binary file.
   :return: A tuple containing the header (as a dictionary) and the field data (as a NumPy array).
-  :rtype: tuple[dict, np.ndarray]
+  :rtype: tuple[dict, numpy.ndarray]
   """
   try:
     with open(fname,'rb') as f:

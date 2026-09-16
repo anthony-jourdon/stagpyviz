@@ -47,7 +47,7 @@ class StagField(Field):
     If the file cannot be read or does not exist, the function returns None and the field will be ignored.
 
     :return: A numpy array containing the field data, or None if the file could not be read.
-    :rtype: np.ndarray|None
+    :rtype: numpy.ndarray|None
     """
     io_utils = self.io_utils
     full_fname = io_utils.get_field_filename(self.name, io_utils.step)
@@ -68,7 +68,7 @@ class StagField(Field):
       Array of the shape ``(nx, ny, nz, nblock)`` where 
       ``nx``, ``ny``, ``nz`` are the dimensions of the field in each direction and 
       ``nblock`` is the number of blocks in the mesh (2 for Yin-Yang mesh).
-    :rtype: np.ndarray|None
+    :rtype: numpy.ndarray|None
     """
     if self.values is not None:
       return self.values
@@ -163,7 +163,7 @@ class Velocity(StagField):
       Array of the shape ``(3, nx, ny, nz, nblock)``, 
       where the first dimension corresponds to the 
       three velocity components in Cartesian coordinates.
-    :rtype: np.ndarray|None
+    :rtype: numpy.ndarray|None
     """
     if self.values is not None:
       return self.values
@@ -197,7 +197,7 @@ class Pressure(StagField):
 
     :return: 
       Array of the shape ``(nx, ny, nz, nblock)``
-    :rtype: np.ndarray|None
+    :rtype: numpy.ndarray|None
     """
     if self.values is not None:
       return self.values
@@ -241,7 +241,7 @@ class SphericalField(DerivedField):
       ``(mesh.number_of_points, components)`` for point fields or
       ``(mesh.number_of_cells, components)`` for cell fields, 
       where ``components`` is the number of components of the Cartesian field (e.g. 3 for velocity).
-    :rtype: np.ndarray|None
+    :rtype: numpy.ndarray|None
     """
     if self.field_x.name in self.mesh.cell_data or self.field_x.name in self.mesh.point_data:
       return self.mesh[self.field_x.name]
@@ -264,7 +264,7 @@ class SphericalField(DerivedField):
       ``(mesh.number_of_points, components)`` for point fields or
       ``(mesh.number_of_cells, components)`` for cell fields, 
       where ``components`` is the number of components of the Cartesian field (e.g. 3 for velocity).
-    :rtype: np.ndarray|None
+    :rtype: numpy.ndarray|None
     """
     if self.values is not None:
       return self.values
@@ -326,7 +326,7 @@ class CartesianGradient(DerivedField):
     :return:
       Array containing the gradient values of the shape
       ``(mesh.number_of_cells, components)``
-    :rtype: np.ndarray|None
+    :rtype: numpy.ndarray|None
     """
     if self.values is not None:
       return self.values

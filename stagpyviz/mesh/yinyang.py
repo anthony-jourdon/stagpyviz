@@ -46,9 +46,14 @@ class YinYangMesh(UnstructuredSphere):
 
   The mesh can be generated directly from the raw binary file or from a VTU file containing the mesh and the fields.
 
-  :param pathlib.Path|str rawbin: The path to the raw binary file containing the Yin-Yang grid (output of StagYY)
-  :param Scaling scaling: Scaling object containing the scaling factors and units to apply to the coordinates of the points in the mesh.
+  :param pathlib.Path|str rawbin: 
+    The path to the raw binary file containing the Yin-Yang grid (output of StagYY)
+  :param bool deep:
+    If True, a deep copy of the input data is made. Default is False.
+  :param Scaling scaling: 
+    Scaling object containing the scaling factors and units to apply to the coordinates of the points in the mesh.
   
+    
   :Attributes:
 
   .. py:attribute:: yin
@@ -60,7 +65,7 @@ class YinYangMesh(UnstructuredSphere):
     Arrays of shape ``(nx, ny, nz)``.
 
     :type: dict
-    :canonical: stagpyviz.YinYangMesh.yin
+
 
   .. py:attribute:: yang
 
@@ -71,21 +76,21 @@ class YinYangMesh(UnstructuredSphere):
     Arrays of shape ``(nx, ny, nz)``.
 
     :type: dict
-    :canonical: stagpyviz.YinYangMesh.yang
+
 
   .. py:attribute:: good_indices
 
     Boolean array of shape ``(nx*ny*nz,)`` to flag the points that are not in the overlapping region between the Yin and Yang grids.
 
     :type: numpy.ndarray
-    :canonical: stagpyviz.YinYangMesh.good_indices
+
 
   .. py:attribute:: points_per_layer
     
     Number of points per radial layer in the Yin (or Yang) grid after removing the overlapping points.
 
     :type: int
-    :canonical: stagpyviz.YinYangMesh.points_per_layer
+
 
   .. py:attribute:: surface_mesh
 
@@ -93,7 +98,7 @@ class YinYangMesh(UnstructuredSphere):
     both grids.
 
     :type: :py:class:`ShellMesh <stagpyviz.ShellMesh>`
-    :canonical: stagpyviz.YinYangMesh.surface_mesh
+
 
   .. py:attribute:: elements
 
@@ -101,35 +106,35 @@ class YinYangMesh(UnstructuredSphere):
     to represent the wedge elements of the mesh and perform operations on them.
 
     :type: :py:class:`Wedge3D <stagpyviz.Wedge3D>`
-    :canonical: stagpyviz.YinYangMesh.elements
+
 
   .. py:attribute:: grid_dimensions
 
     Tuple of the dimensions of the Yin (or Yang) grid in the x, y and z directions.
 
     :type: tuple[int,int,int]
-    :canonical: stagpyviz.YinYangMesh.grid_dimensions
+
 
   .. py:attribute:: grid_npoints
 
     Total number of points in the Yin (or Yang) grid.
 
     :type: int
-    :canonical: stagpyviz.YinYangMesh.grid_npoints
+
 
   .. py:attribute:: yin_radial_idx
 
     2D array of shape ``(points_per_layer, n_radial_layers)`` containing the indices of the points in the Yin grid reshaped radially.
 
     :type: numpy.ndarray
-    :canonical: stagpyviz.YinYangMesh.yin_radial_idx
+
 
   .. py:attribute:: yang_radial_idx
 
     2D array of shape ``(points_per_layer, n_radial_layers)`` containing the indices of the points in the Yang grid reshaped radially.
 
     :type: numpy.ndarray
-    :canonical: stagpyviz.YinYangMesh.yang_radial_idx
+
 
   .. py:attribute:: surface_idx
 
@@ -137,7 +142,7 @@ class YinYangMesh(UnstructuredSphere):
     (last radial layer of both grids).
 
     :type: numpy.ndarray
-    :canonical: stagpyviz.YinYangMesh.surface_idx
+
 
   .. py:attribute:: surface_cells
 
@@ -145,7 +150,7 @@ class YinYangMesh(UnstructuredSphere):
     (last radial layer of both grids).
 
     :type: numpy.ndarray
-    :canonical: stagpyviz.YinYangMesh.surface_cells
+
 
   .. py:attribute:: cells_Jacobian
 
@@ -153,10 +158,10 @@ class YinYangMesh(UnstructuredSphere):
     of the transformation from the reference element to the physical element for each cell in the mesh.
 
     :type: numpy.ndarray
-    :canonical: stagpyviz.YinYangMesh.cells_Jacobian
 
-  :Methods:
 
+  Methods:
+  --------
   """
   def __init__(self, rawbin:Path|str, *args, deep:bool=False, **kwargs):
     if not isinstance(rawbin, (Path, str)):
@@ -363,9 +368,9 @@ class YinYangMesh(UnstructuredSphere):
       The index of the radial layer for which to get the points indices.
       The index starts from 0 for the innermost layer and goes up to n-1 for the outermost layer.
       Should never be outside of the range [0, n-1] where n is the number 
-      of radial layers in the grid (:py:attr:`grid_dimensions[2]`).
+      of radial layers in the grid (:py:attr:`grid_dimensions[2] <stagpyviz.YinYangMesh.grid_dimensions>`).
     :return:
-      A 1D array of shape (2*:py:attr:`points_per_layer`,) 
+      A 1D array of shape (2 * :py:attr:`points_per_layer <stagpyviz.YinYangMesh.points_per_layer>`,) 
       containing the indices of the points in the k-th radial layer of both grids.
     :rtype: numpy.ndarray
     """
@@ -392,7 +397,7 @@ class YinYangMesh(UnstructuredSphere):
       The index of the radial layer for which to get the cells indices.
       The index starts from 1 for the innermost layer and goes up to n-1 for the outermost layer.
       Should never be outside of the range [1, n-1] where n is the number 
-      of radial layers in the grid (:py:attr:`grid_dimensions[2]`).
+      of radial layers in the grid (:py:attr:`grid_dimensions[2] <stagpyviz.YinYangMesh.grid_dimensions>`).
     :return:
       A 1D array of shape (number_of_cells_in_layer,) containing the indices of the cells in the k-th radial layer of both grids.
     :rtype: numpy.ndarray
@@ -751,7 +756,7 @@ class YinYangMesh(UnstructuredSphere):
       - ``"1pt"``: 1 point quadrature rule using :py:meth:`Wedge3D.quadrature_1pt <stagpyviz.Wedge3D.quadrature_1pt>`.
         Cell fields automatically use this method.
 
-      - ``"3x2pt"``: 3x2 points rule using method :py:meth:`quadrature_6pt <stagpyviz.Wedge3D.quadrature_6pt>`.
+      - ``"3x2pt"``: 3x2 points rule using method :py:meth:`Wedge3D.quadrature_6pt <stagpyviz.Wedge3D.quadrature_6pt>`.
     
     :return:
       The integrated field over the cells of shape ``(number_of_cells, ...)``.

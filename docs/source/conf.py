@@ -31,13 +31,25 @@ extensions = [
   'sphinx.ext.intersphinx',
   'sphinx.ext.doctest',
   'sphinx.ext.autodoc',
-  ]
+  "sphinx.ext.viewcode",
+]
 
 templates_path = ['_templates']
 exclude_patterns = []
-include_patterns = ['**',
-                    '../stagpyviz/**']
+include_patterns = [
+  '**',
+  '../stagpyviz/**'
+]
 
+intersphinx_mapping = {
+  "python": ("https://docs.python.org/3", None),
+  "numpy": ("https://numpy.org/doc/stable/", None),
+  "matplotlib": ("https://matplotlib.org/stable/", None),
+  "sympy": ("https://docs.sympy.org/latest/", None),
+  "pyvista": ("https://docs.pyvista.org/", None),
+  "scipy": ("https://docs.scipy.org/doc/scipy/", None),
+  "pint": ("https://pint.readthedocs.io/en/stable/", None),
+}
 
 rst_prolog = """
 .. _pyvista.UnstructuredGrid: https://docs.pyvista.org/api/core/_autosummary/pyvista.unstructuredgrid
@@ -50,7 +62,13 @@ rst_prolog = """
 html_theme = 'sphinx_rtd_theme'
 html_static_path = []
 
-html_theme_options = {'prev_next_buttons_location': 'both',
-                      'style_external_links': True,}
+html_theme_options = {
+  'prev_next_buttons_location': 'both',
+  #'style_external_links': True,
+}
 
 html_favicon = 'figures/favicon.png'
+
+autodoc_member_order = "bysource"
+autodoc_typehints = "description"
+autodoc_class_signature = "mixed"

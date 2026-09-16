@@ -5,13 +5,18 @@ from pathlib import Path
 def timeseries_process(pvdfname:str|Path, start_line:int|None=None) -> dict:
   """
   Reads a .pvd file and extracts the time series information. 
-  It uses the specific regular expression ``r'(?:^(step\\d+)/)?.*0(\\d+)(.*)'`` 
+  It uses the specific regular expression 
+  
+  .. code-block:: python
+
+    r'(?:^(.*(\\d+)?)/)?([Aa-zZ]+0+)?(\\d+)(.*)'
+  
   to extract the step directory and step number from the file name.
   The time series information is stored in a dictionary with the following keys:
 
   - ``"time"``: list of time values as strings
 
-  - ``"step_dir"``: list of step directories (e.g., "step0001/") or empty string if not present
+  - ``"step_dir"``: list of step directories (e.g., ``"step1/"``) or empty string if not present
 
   - ``"step"``: list of step numbers as strings
 
@@ -19,13 +24,13 @@ def timeseries_process(pvdfname:str|Path, start_line:int|None=None) -> dict:
 
   - ``"line"``: list of line numbers in the .pvd file where the time series information was found
 
-  :param pvdfname: pvd file name to process
-  :type pvdfname: str|Path
-  :param start_line: Line number to start processing from (default is None, which means to start from the beginning of the file)
-  :type start_line: int|None
+  
+  :param str|pathlib.Path pvdfname: 
+    pvd file name to process
+  :param int|None start_line: 
+    Line number to start processing from (default is None, which means to start from the beginning of the file)
   :return: Dictionary containing the time series information
   :rtype: dict
-
   """
   if not isinstance(pvdfname, (str, Path)):
     raise ValueError("pvdfname must be a string or a Path object.")
@@ -78,10 +83,10 @@ def timeseries_compare(pvdfname1:str|Path, pvdfname2:str|Path) -> tuple[dict, di
     If they have the same number of lines, it will simply return the timeseries 
     for the first file and None for the others.
     
-    :param pvdfname1: pvd file name for the first timeseries
-    :type pvdfname1: str|Path
-    :param pvdfname2: pvd file name for the second timeseries
-    :type pvdfname2: str|Path
+    :param str|pathlib.Path pvdfname1: 
+      pvd file name for the first timeseries
+    :param str|pathlib.Path pvdfname2: 
+      pvd file name for the second timeseries
     :return: 
       A tuple containing the new timeseries (if they differ), 
       the previous timeseries, and the full timeseries.
@@ -117,16 +122,11 @@ def timeseries_write_step(time:str, step:str, extension:str, prefix:str|None=Non
   ``{prefix}`` is an optional prefix for the file name, 
   and ``{extension}`` is the file extension (e.g., "vts").
 
-  :param time: Time value for the step
-  :type time: str
-  :param step: Step number for the step
-  :type step: str
-  :param extension: File extension for the step file (default is "vts")
-  :type extension: str
-  :param prefix: Optional prefix for the step file name (default is None)
-  :type prefix: str|None
-  :param stepdir: Optional step directory for the step file (default is "")
-  :type stepdir: str
+  :param str time: Time value for the step
+  :param str step: Step number for the step
+  :param str extension: File extension for the step file (default is "vts")
+  :param str|None prefix: Optional prefix for the step file name (default is None)
+  :param str stepdir: Optional step directory for the step file (default is "")
   :return: Formatted string for the step entry in the .pvd file
   :rtype: str
   """
@@ -140,12 +140,13 @@ def timeseries_write_new(timeseries:dict, prefix:str|None=None, extension:str="v
   """
   Write a new .pvd file content for a given timeseries.
 
-  :param timeseries: Dictionary containing the time series information (as returned by :py:func:`timeseries_process <stagpyviz.timeseries_process>`)
-  :type timeseries: dict
-  :param prefix: Optional prefix for the step file names (default is None)
-  :type prefix: str|None
-  :param extension: File extension for the step files (default is ``"vts"``)
-  :type extension: str
+  :param dict timeseries: 
+    Dictionary containing the time series information 
+    (as returned by :py:func:`timeseries_process <stagpyviz.timeseries_process>`)
+  :param str|None prefix: 
+    Optional prefix for the step file names (default is None)
+  :param str extension: 
+    File extension for the step files (default is ``"vts"``)
   :return: Formatted string for the entire .pvd file content
   :rtype: str
   """
@@ -171,11 +172,11 @@ def timeseries_append(content:str, timeseries:dict, prefix:str|None=None, extens
 
   :param content: List of lines representing the existing content of the .pvd file
   :type content: list[str]
-  :param timeseries: Dictionary containing the time series information (as returned by :py:func:`timeseries_process <stagpyviz.timeseries_process>`)
+  :param dict timeseries: Dictionary containing the time series information (as returned by :py:func:`timeseries_process <stagpyviz.timeseries_process>`)
   :type timeseries: dict
-  :param prefix: Optional prefix for the step file names (default is None)
+  :param str|None prefix: Optional prefix for the step file names (default is None)
   :type prefix: str|None
-  :param extension: File extension for the step files (default is ``"vts"``)
+  :param str extension: File extension for the step files (default is ``"vts"``)
   :type extension: str
   :return: Formatted string for the entire .pvd file content with the new steps appended
   :rtype: str

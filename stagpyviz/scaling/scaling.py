@@ -36,8 +36,8 @@ class Scaling:
     # Convert a dimensional pressure field from GPa to its base units (Pa)
     p_pa = p_scaling.to_base(p_gpa, "GPa")
   
-  :Methods:
-
+  Methods:
+  --------
   """
   def __init__(self, name:str, factor:float, unit:str|Unit|None=None):
     self.name:str       = name
@@ -137,13 +137,13 @@ def scaling_factors(**kwargs) -> dict[str, Scaling]:
     - ``temperature_unit``: Unit for temperature (default: ``"K"``)
     - ``length_factor``: Scaling factor for length (default: ``2.89e6`` m)
     - ``length_unit``: Unit for length (default: ``"m"``)
-    - ``diffusivity_factor``: Scaling factor for diffusivity (default: ``1e-6`` m^2/s)
+    - ``diffusivity_factor``: Scaling factor for diffusivity (default: ``1e-6`` m\\ :sup:`2`/s)
     - ``diffusivity_unit``: Unit for diffusivity (default: ``"m**2/s"``)
     - ``expansion_factor``: Scaling factor for thermal expansion coefficient (default: ``3e-5`` 1/K)
     - ``expansion_unit``: Unit for thermal expansion coefficient (default: ``"1/K"``)
-    - ``gravity_factor``: Scaling factor for gravity (default: ``9.81`` m/s^2)
+    - ``gravity_factor``: Scaling factor for gravity (default: ``9.81`` m/s\\ :sup:`2`)
     - ``gravity_unit``: Unit for gravity (default: ``"m/s**2"``)
-    - ``density_factor``: Scaling factor for density (default: ``3300.0`` kg/m^3)
+    - ``density_factor``: Scaling factor for density (default: ``3300.0`` kg/m\\ :sup:`3`)
     - ``density_unit``: Unit for density (default: ``"kg/m**3"``)
     - ``viscosity_factor``: Scaling factor for viscosity (default: calculated from ``Ra`` if not provided)
     - ``viscosity_unit``: Unit for viscosity (default: calculated from ``Ra`` if not provided)
