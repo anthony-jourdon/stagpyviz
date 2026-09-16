@@ -137,6 +137,20 @@ class SolidBodyRotation:
     self._quaternion = q
     return
 
+  def reset_step(self):
+    """
+    Reset all time step variables to None. Only the accumulated quaternion is preserved.
+    This should be called at the beginning of each time step to ensure that 
+    the instantaneous rotation is computed correctly for the current time step.
+    """
+    self._cell_L = None
+    self._cell_I = None
+    self._L_vol  = None
+    self._I_vol  = None
+    self._omega  = None
+    self._q_dt   = None
+    return
+
   def cell_angular_momentum(self) -> np.ndarray:
     """
     Compute the cell-wise angular momentum of the domain as:
@@ -299,7 +313,7 @@ class SolidBodyRotation:
     axis  = omega / np.linalg.norm(omega)
     return axis
 
-  def instantaneous_quaternion(self, angle:float, axis:np.ndarray) -> np.ndarray:
+  def instantaneous_quaternion(self, angle:float, axis:np.ndarray) -> None:
     """
     Construct the instantaneous quaternion representing the rotation of the domain over a time step ``dt`` as:
 
@@ -350,7 +364,7 @@ class SolidBodyRotation:
     c  = w1*b + w2*a + np.cross(a, b)
     return np.array([w, *c], dtype=np.float64)
 
-  def update_quaternion(self) -> np.ndarray:
+  def update_quaternion(self) -> None:
     """
     Update the accumulated quaternion representing the accumulated rotation of the domain such that:
     
