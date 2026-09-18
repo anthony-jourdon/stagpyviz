@@ -90,7 +90,7 @@ def process_full_directory(mesh:spv.YinYangMesh, io_utils:spv.IOutils, class_fie
   """
   found = True
   while found:
-    fname = f"{io_utils.model}_{io_utils.filelist[io_utils.output_fields[0]]}{str(io_utils.step).zfill(5)}"
+    fname = io_utils.get_field_filename(io_utils.output_fields[0], io_utils.step)
     if not os.path.exists(os.path.join(io_utils.model_dir,fname)):
       print(f"File {fname} not found, stopping time series processing.")
       found = False
@@ -115,7 +115,7 @@ def process_step_range(mesh:spv.YinYangMesh, io_utils:spv.IOutils, class_fields:
   :type class_fields: dict[str, Field]
   """
   for step in io_utils.steps_idx:
-    fname = f"{io_utils.model}_{io_utils.filelist[io_utils.output_fields[0]]}{str(step).zfill(5)}"
+    fname = io_utils.get_field_filename(io_utils.output_fields[0], step)
     if not os.path.exists(os.path.join(io_utils.model_dir,fname)):
       print(f"File {fname} not found, skipping step {step}.")
       continue
