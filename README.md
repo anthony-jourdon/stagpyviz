@@ -33,4 +33,4 @@ Other used packages:
 - [numpy](https://numpy.org/)
 - [pyvista](https://pyvista.org/)
 - [scipy](https://scipy.org/)
-
+- [pint](https://pint.readthedocs.io/en/stable/)
