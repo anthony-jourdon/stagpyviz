@@ -37,4 +37,5 @@ Other used packages:
 
 ## Funding
 stagpyviz has been developped in project PANDORA European Research Council (ERC) advanced grant, award number 101142672.
+
 ![plot](./docs/source/figures/ERC_logo.png)
