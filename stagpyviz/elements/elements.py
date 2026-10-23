@@ -157,7 +157,7 @@ class Element:
     volume = np.einsum('q,qe->e', weights, np.abs(detJ))
     return volume
   
-  def integrate_field(self, xe:np.ndarray, field_e:np.ndarray, rule:int=1) -> np.ndarray:
+  def integrate_field(self, xe:np.ndarray, field_e:np.ndarray, rule:int=1, **kwargs) -> np.ndarray:
     """
     Evaluate the integral of a field defined at the nodes of the element(s) 
     using numerical quadrature such that:
@@ -187,8 +187,11 @@ class Element:
     """
     weights, points = self.quadrature(nqp=rule)
     Ni     = self.evaluate_Ni(points).reshape((weights.shape[0], -1))
-    GNi    = self.evaluate_GNi(points)
-    J      = self.evaluate_Jacobian(GNi, xe)
+    if kwargs.get("Jacobian", None) is not None:
+      J = kwargs["Jacobian"]
+    else:
+      GNi    = self.evaluate_GNi(points)
+      J      = self.evaluate_Jacobian(GNi, xe)
     detJ   = self.evaluate_detJ(J).reshape((weights.shape[0], -1))
     int_f  = np.einsum('q,qe,qk,ek...->e...',weights, np.abs(detJ), Ni, field_e)
     return int_f

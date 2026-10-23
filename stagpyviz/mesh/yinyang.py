@@ -718,7 +718,7 @@ class YinYangMesh(UnstructuredSphere):
       el_coords = self.points[ elidx, : ]  # (number_of_cells, nodes_per_el, 3)
       field_el = field[ elidx ]  # (number_of_cells, nodes_per_el)
       t1 = perf_counter()
-      integral = self.elements.integrate_field(el_coords, field_el, rule=1)
+      integral = self.elements.integrate_field(el_coords, field_el, rule=1, Jacobian=self.cells_Jacobian)
       print(f"Field integrated with 1 point rule in {t1-t0:g} seconds")
       return integral
     else:

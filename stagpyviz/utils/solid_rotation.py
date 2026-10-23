@@ -1,6 +1,6 @@
 import os
 import numpy as np
-from ..mesh import YinYangMesh
+from ..mesh import YinYangMesh, ShellMesh
 from scipy.spatial.transform import Rotation
 
 class SolidBodyRotation:
@@ -14,8 +14,8 @@ class SolidBodyRotation:
 
   Can be applied to a timeseries to track the evolution of the solid body rotation over time.
 
-  :param YinYangMesh mesh: 
-    The Yin-Yang mesh representing the 3D domain.
+  :param YinYangMesh|ShellMesh mesh: 
+    The mesh representing either the full volume of the Yin-Yang grid or its surface (can be the surface at any radius of the volume grid).
     Optional. 
     If not provided, the class can still be used by loading the mesh later, but 
     the mesh must be set before calling methods that require it i.e., 
@@ -28,7 +28,7 @@ class SolidBodyRotation:
     Default is ``"1pt"``. 
     Other option is ``"3x2pt"``.
   """
-  def __init__(self, mesh:YinYangMesh|None=None, rule:str="1pt"):
+  def __init__(self, mesh:YinYangMesh|ShellMesh|None=None, rule:str="1pt"):
     self.mesh = mesh
     self.rule = rule
 
@@ -89,19 +89,35 @@ class SolidBodyRotation:
     """
     Angular velocity of the domain defined as:
 
-
     .. math::
       \\boldsymbol{\\omega} = \\boldsymbol{I}^{-1} \\mathbf{L}
 
-
     where :math:`\\boldsymbol{I}` is the angular inertia 
     and :math:`\\mathbf{L}` is the angular momentum.
+    
+    .. note:: 
+      For a spherical surface, the angular velocity has a simpler kinematic definition:
+
+      .. math::
+        \\boldsymbol{\\omega} = \\frac{3}{8 \\pi R^4} \\mathbf{L}
+    
     Array of shape ``(3,)``.
     """
     if self._omega is None:
-      L_vol = self.angular_momentum
-      I_vol = self.angular_inertia
-      self._omega = np.linalg.solve(I_vol, L_vol)
+      if isinstance(self.mesh, YinYangMesh):
+        L_vol = self.angular_momentum
+        I_vol = self.angular_inertia
+        self._omega = np.linalg.solve(I_vol, L_vol)
+      elif isinstance(self.mesh, ShellMesh):
+        # for a surface the solution is simpler
+        if "density" in self.mesh.point_data:
+          # remove the density field from the surface mesh, we don't want it
+          self.mesh.point_data.pop("density")
+        L_vol  = self.angular_momentum
+        radius = self.mesh.points_spherical[0,0] # it is a surface so all points have the same radius
+        self._omega = 3.0 /(8.0 * np.pi * radius**4) * L_vol
+      else:
+        raise ValueError("mesh is neither YinYangMesh nor ShellMesh. Cannot compute angular velocity.")
     return self._omega
 
   @angular_velocity.setter
@@ -156,12 +172,19 @@ class SolidBodyRotation:
     Compute the cell-wise angular momentum of the domain as:
 
     .. math::
-      \\mathbf{L}_e = \\int_{\\Omega_e} \\rho (\\mathbf{x}) \\left( \\mathbf{x} \\times \\mathbf{u}  \\right) \\, d{V_e}
+      \\mathbf{L}_e = \\int_{\\Omega_e} \\left( \\mathbf{x} \\times \\mathbf{u} \\right) \\, d{\\mu_e}
 
     where :math:`\\Omega_e` is the element, 
-    :math:`\\rho` is the density field, 
     :math:`\\mathbf{x}` is the position vector, 
     and :math:`\\mathbf{u}` is the velocity vector.
+
+    .. note::
+
+      The integral can be computed for three different cases:
+
+      1. :math:`d \\mu_e = d S_e`, we compute the kinematic angular "momentum" of a surface.
+      2. :math:`d \\mu_e = d V_e`, we compute the kinematic angular "momentum" of a volume.
+      3. :math:`d \\mu_e = \\rho (\\mathbf{x}) d V_e`, we compute the dynamic angular momentum of a volume.
 
     :return: 
       Cell-wise angular momentum of the domain.
@@ -169,20 +192,24 @@ class SolidBodyRotation:
     :rtype: numpy.ndarray
 
     .. note::
-      The ``"density"`` and ``"velocity"`` fields must be present in the mesh's point data (``mesh.point_data``).
+      The ``"velocity"`` field must be present in the mesh's point data (``mesh.point_data``).
+      If the ``"density"`` field is not present we compute the kinematic angular "momentum".
 
     """
-    mesh:YinYangMesh = self.mesh
+    mesh:YinYangMesh|ShellMesh = self.mesh
     if mesh is None:
       raise ValueError("mesh is None. Cannot compute angular momentum.")
     # compute the angular momentum:
     # L = \int_V rho r x u dV
-    rho = mesh.point_data["density"]
     u   = mesh.point_data["velocity"]
     r   = mesh.points
     # compute the pointwise integrand: rho * r x u
     w = np.cross(r, u, axis=1)
-    integrand = np.einsum("e,ei->ei", rho, w)
+    if "density" in mesh.point_data:
+      rho = mesh.point_data["density"]
+      integrand = np.einsum("e,ei->ei", rho, w)
+    else:
+      integrand = w
     # integrate over the volume of the mesh
     int_L = mesh.integrate_over_cell(integrand, rule=self.rule)
     return int_L
@@ -192,12 +219,19 @@ class SolidBodyRotation:
     Compute the cell-wise angular inertia of the domain as:
 
     .. math::
-      \\boldsymbol{I}_e = \\int_{\\Omega_e} \\rho (\\mathbf{x}) \\left( ||\\mathbf{x}||^2 \\, \\mathbb{I} - \\mathbf{x} \\mathbf{x}^T \\right) \\, d{V_e}
+      \\boldsymbol{I}_e = \\int_{\\Omega_e} \\left( ||\\mathbf{x}||^2 \\, \\mathbb{I} - \\mathbf{x} \\mathbf{x}^T \\right) \\, d{\\mu_e}
 
     where :math:`\\Omega_e` is the element, 
-    :math:`\\rho` is the density field, 
     :math:`\\mathbf{x}` is the position vector, 
     and :math:`\\mathbb{I}` is the identity matrix.
+
+    .. note::
+
+      The integral can be computed for three different cases:
+
+      1. :math:`d \\mu_e = d S_e`, we compute the kinematic angular "inertia" of a surface.
+      2. :math:`d \\mu_e = d V_e`, we compute the kinematic angular "inertia" of a volume.
+      3. :math:`d \\mu_e = \\rho (\\mathbf{x}) d V_e`, we compute the dynamic angular inertia of a volume.
 
     :return: 
       Cell-wise angular inertia of the domain.
@@ -205,16 +239,15 @@ class SolidBodyRotation:
     :rtype: numpy.ndarray
 
     .. note::
-      The ``"density"`` field must be present in the mesh's point data (``mesh.point_data``).
+      If the ``"density"`` field is not present we automatically compute the kinematic angular "inertia".
 
     """
-    mesh:YinYangMesh = self.mesh
+    mesh:YinYangMesh|ShellMesh = self.mesh
     if mesh is None:
       raise ValueError("mesh is None. Cannot compute angular inertia.")
     # compute the angular inertia:
     # I = \int_V rho (r^2 I - r r^T) dV
-    rho = mesh.point_data["density"]
-    r   = mesh.points
+    r = mesh.points
     # compute the pointwise integrand: rho * (r^2 I - r r^T)
     r2rrT = np.zeros((mesh.number_of_points, 3, 3))
     r2rrT[:,0,0] = r[:,1]**2 + r[:,2]**2
@@ -223,7 +256,11 @@ class SolidBodyRotation:
     r2rrT[:,0,1] = r2rrT[:,1,0] = -r[:,0]*r[:,1]
     r2rrT[:,0,2] = r2rrT[:,2,0] = -r[:,0]*r[:,2]
     r2rrT[:,1,2] = r2rrT[:,2,1] = -r[:,1]*r[:,2]
-    integrand = np.einsum("e, eij -> eij", rho, r2rrT)
+    if "density" in mesh.point_data:
+      rho = mesh.point_data["density"]
+      integrand = np.einsum("e, eij -> eij", rho, r2rrT)
+    else:
+      integrand = r2rrT
     # integrate over the volume of the mesh
     int_I = mesh.integrate_over_cell(integrand, rule=self.rule)
     return int_I
@@ -243,7 +280,7 @@ class SolidBodyRotation:
       Array of shape ``(number_of_points, 3)``.
     :rtype: numpy.ndarray
     """
-    mesh:YinYangMesh = self.mesh
+    mesh:YinYangMesh|ShellMesh = self.mesh
     if mesh is None:
       raise ValueError("mesh is None. Cannot compute solid body velocity.")
     omega   = self.angular_velocity
@@ -266,7 +303,7 @@ class SolidBodyRotation:
       Array of shape ``(number_of_points, 3)``.
     :rtype: numpy.ndarray
     """
-    mesh:YinYangMesh = self.mesh
+    mesh:YinYangMesh|ShellMesh = self.mesh
     if mesh is None:
       raise ValueError("mesh is None. Cannot remove solid body velocity.")
     u       = mesh.point_data["velocity"]
