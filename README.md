@@ -34,3 +34,7 @@ Other used packages:
 - [pyvista](https://pyvista.org/)
 - [scipy](https://scipy.org/)
 - [pint](https://pint.readthedocs.io/en/stable/)
+
+## Funding
+stagpyviz has been developped in project PANDORA European Research Council (ERC) advanced grant, award number 101142672.
+![plot](./docs/source/figures/ERC_logo.png)
