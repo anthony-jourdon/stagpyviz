@@ -134,6 +134,14 @@ class Solidus:
     pdyn_solidus   = pressure_dynamic[ valid_pidx ]
     plitho_solidus = pressure_lithostatic[ valid_pidx ]
     T_solidus      = self.compute_solidus(pdyn_solidus, plitho_solidus, **kwargs)
+    if self.add_adiabatic:
+      if self.adim:
+        p = self.scalings["pressure"].dim(pressure_lithostatic)
+        t = self.scalings["temperature"].dim(temperature)
+        temperature = self.adiabatic_temperature(t, p, from_depth=False, **kwargs)
+        temperature = self.scalings["temperature"].a_dim(temperature)
+      else:
+        temperature = self.adiabatic_temperature(temperature, pressure_lithostatic, from_depth=False, **kwargs)
     
     # get the points where the temperature is above the solidus temperature
     melting_idx = temperature[valid_pidx] > T_solidus
@@ -327,12 +335,4 @@ class SolidusHirschmann2010(Solidus):
     a, b, c   = self.Hirschmann2010_coefficients()
     pressure  = pressure_dynamic + pressure_lithostatic
     T_solidus = a * pressure**2 + b * pressure + c
-    if self.add_adiabatic:
-      if self.adim:
-        p = self.scalings["pressure"].dim(pressure_lithostatic)
-        t = self.scalings["temperature"].dim(T_solidus)
-        T_solidus = self.adiabatic_temperature(t, p, from_depth=False, **kwargs)
-        T_solidus = self.scalings["temperature"].a_dim(T_solidus)
-      else:
-        T_solidus = self.adiabatic_temperature(T_solidus, pressure_lithostatic, from_depth=False, **kwargs)
     return T_solidus
