@@ -8,15 +8,23 @@ except ImportError:
   from stagpyviz.mesh import ShellMesh, YinYangMesh
 
 class Solidus:
-  def __init__(self, scalings:dict[str, Scaling], log:bool=False, adim:bool=True, **kwargs) -> None:
-    """
+  """
     Class to compute the solidus temperature.
 
+    :param dict[str, Scaling] scalings:
+      A dictionary of Scaling objects for the model's fields (temperature, pressure, etc.)
+    :param bool log:
+      If True, print some information for debugging purposes.
+    :param bool adim:
+      If True, the model is expected to be adimensional.
+    :param float max_pressure:
+      The maximum pressure for which the solidus is defined. Default is 10 GPa,
+      converted to adimensional units if `adim` is True.
+    :param bool add_adiabatic:
+      If True, the adiabatic temperature is added to the temperature field before determining if the temperature crosses the solidus.
 
-    .. note::
-      If the model is dimensional, set factors to 1.0 and units to the base units of the model.
-    
-    """
+  """
+  def __init__(self, scalings:dict[str, Scaling], log:bool=False, adim:bool=True, **kwargs) -> None:
     self.scalings = scalings
     self.log      = log
     self.adim     = adim
@@ -45,13 +53,13 @@ class Solidus:
     .. note::
       Either :math:`g` or :math:`z` is negative, but not both.
 
-    :param np.ndarray temperature: the incompressible temperature field (K).
-    :param np.ndarray depth: the depth field (m).
+    :param numpy.ndarray temperature: the incompressible temperature field (K).
+    :param numpy.ndarray depth: the depth field (m).
     :param float alpha: the thermal expansion coefficient (1/K).
     :param float g: the gravity (m/s^2).
     :param float Cp: the specific heat (J/kg/K).
 
-    :return np.ndarray: the adiabatic temperature (K).
+    :return numpy.ndarray: the adiabatic temperature (K).
     """
     alpha = kwargs.get("alpha", 5e-5) # thermal expansion coefficient (1/K)
     g     = kwargs.get("g", 9.81)     # gravity (m/s^2)
@@ -70,13 +78,16 @@ class Solidus:
     where :math:`T_0` is the incompressible temperature at :math:`p=0`, :math:`\\alpha` is the thermal expansion coefficient,
     :math:`\\rho` is the density, :math:`C_p` is the specific heat, and :math:`p` is the pressure.
 
-    :param np.ndarray temperature: the incompressible temperature field (K).
-    :param np.ndarray pressure: the pressure field (Pa).
+    .. note::
+      This expression assumes that the density is constant and that the pressure is hydrostatic.
+
+    :param numpy.ndarray temperature: the incompressible temperature field (K).
+    :param numpy.ndarray pressure: the pressure field (Pa).
     :param float alpha: the thermal expansion coefficient (1/K).
     :param float rho: the density (kg/m^3).
     :param float Cp: the specific heat (J/kg/K).
 
-    :return np.ndarray: the adiabatic temperature (K).
+    :return numpy.ndarray: the adiabatic temperature (K).
     """
     alpha = kwargs.get("alpha", 5e-5) # thermal expansion coefficient (1/K)
     rho   = kwargs.get("rho", 3300.0) # density (kg/m^3)
@@ -85,17 +96,19 @@ class Solidus:
 
   def adiabatic_temperature(self, temperature:np.ndarray, variable:np.ndarray, from_depth:bool=False, **kwargs) -> np.ndarray:
     """
-    Compute the adiabatic temperature profile from either depth or pressure, depending on the value of `from_depth`.
+    Compute the adiabatic temperature profile from either depth or pressure, depending on the value of ``from_depth``.
+    If ``from_depth`` is True, the adiabatic temperature is computed using :py:meth:`adiabatic_temperature_from_depth <stagpyviz.Solidus.adiabatic_temperature_from_depth>`, 
+    otherwise it is computed using :py:meth:`adiabatic_temperature_from_pressure <stagpyviz.Solidus.adiabatic_temperature_from_pressure>`.
 
-    :param np.ndarray temperature: the incompressible temperature field (K).
-    :param np.ndarray variable: the depth (m) or pressure (Pa) field, depending on the value of `from_depth`.
+    :param numpy.ndarray temperature: the incompressible temperature field (K).
+    :param numpy.ndarray variable: the depth (m) or pressure (Pa) field, depending on the value of ``from_depth``.
     :param bool from_depth: if True, compute the adiabatic temperature from depth; if False, compute it from pressure.
     :param float alpha: the thermal expansion coefficient (1/K).
     :param float g: the gravity (m/s^2).
     :param float rho: the density (kg/m^3).
     :param float Cp: the specific heat (J/kg/K).
 
-    :return np.ndarray: the adiabatic temperature (K).
+    :return numpy.ndarray: the adiabatic temperature (K).
     """
     params = {
       "alpha": kwargs.get("alpha", 5e-5), # thermal expansion coefficient (1/K)
@@ -118,15 +131,15 @@ class Solidus:
     """
     Return a boolean array (0 or 1) indicating which points are above the solidus temperature.
 
-    :param np.ndarray pressure_dynamic: the dynamic pressure field (Pa).
-    :param np.ndarray pressure_lithostatic: the lithostatic pressure field (Pa).
-    :param np.ndarray temperature: the temperature field (K).
+    :param numpy.ndarray pressure_dynamic: the dynamic pressure field (Pa).
+    :param numpy.ndarray pressure_lithostatic: the lithostatic pressure field (Pa).
+    :param numpy.ndarray temperature: the temperature field (K).
     :param float alpha: the thermal expansion coefficient (1/K).
     :param float g: the gravity (m/s^2).
     :param float rho: the density (kg/m^3).
     :param float Cp: the specific heat (J/kg/K).
 
-    :return np.ndarray: a boolean array (0 or 1) indicating which points are above the solidus temperature.
+    :return numpy.ndarray: a boolean array (0 or 1) indicating which points are above the solidus temperature.
     """
     pressure = pressure_dynamic + pressure_lithostatic
     # consider only points where the pressure is below the maximum pressure for which the solidus is defined
@@ -166,7 +179,7 @@ class Solidus:
 
     :param YinYangMesh mesh: the full 3D mesh of the model.
     :param ShellMesh surface_mesh: the surface mesh of the model.
-    :param np.ndarray melting_idx: a boolean array (0 or 1) indicating which points are above the solidus temperature.
+    :param numpy.ndarray melting_idx: a boolean array (0 or 1) indicating which points are above the solidus temperature.
     :param list[int] radial_levels: the radial levels of the mesh to iterate over (from top to bottom).
     :param float radius: the radius of the model.
     :param str depth_name: 
@@ -211,12 +224,13 @@ class Solidus:
     :param float g: the gravitational acceleration of the model.
     :param float alpha: the thermal expansion coefficient of the model.
     :param float Cp: the specific heat of the model.
-    param str depth_name:
+    :param str depth_name:
       the name of the point field to store the depth of the deepest melting points in the surface mesh. 
-      Default is `"solidus_depth"`.
-    param str vr_name:
+      Default is ``"solidus_depth"``.
+    :param str vr_name:
       the name of the point field to store the vertical velocity of the deepest melting points in the surface mesh. 
-      Default is `"solidus_vr"`.
+      Default is ``"solidus_vr"``.
+
     """
     # StagYY manual to convert depth to pressure:
     # depth2pressure = rho * g * L**3 / (eta * kappa)
@@ -250,25 +264,42 @@ class Solidus:
     )
     return
 
-class SolidusHirschmann2010(Solidus):
+class SolidusHirschmann2000(Solidus):
   """
-  Class to compute the solidus temperature using the Hirschmann (2010) formula for peridotite.
+  Class to compute the solidus temperature using the Hirschmann (2000) formula for peridotite.
+
+  .. note::
+    **Reference**:
+
+    Hirschmann (2000), Mantle solidus: Experimental constraints and the effects of peridotite composition, 
+    `Geochemistry, Geophysics, Geosystems`, 1, 2000GC000070.
+
+  :param dict[str, Scaling] scalings:
+    A dictionary of Scaling objects for the model's fields (temperature, pressure, etc.)
+  :param bool log:
+    If True, print some information for debugging purposes.
+  :param bool adim:
+    If True, the model is expected to be adimensional.
+  :param float max_pressure:
+    The maximum pressure for which the solidus is defined. Default is 10 GPa,
+    converted to adimensional units if `adim` is True.
+  :param bool add_adiabatic:
+    If True, the adiabatic temperature is added to the temperature field before determining if the temperature crosses the solidus.
   """
   def __init__(self, scalings:dict[str, Scaling], log:bool=False, adim:bool=True, **kwargs) -> None:
     super().__init__(scalings, log=log, adim=adim, **kwargs)
     return
   
-  def Hirschmann2010_coefficients(self) -> tuple[float, float, float]:
+  def Hirschmann2000_coefficients(self) -> tuple[float, float, float]:
     """
-    Scale coefficients for the Hirschmann (2010) solidus of peridotite 
+    Scale coefficients for the Hirschmann (2000) solidus of peridotite 
     to S.I. units and if necessary adimensionalize them.
 
     :param dict[str, Scaling] scalings: 
       A dictionary of Scaling objects for the model's fields (temperature, pressure, etc.)
-    :param bool log:
-      If True, print the coefficients in base units.
+
     :return tuple[float, float, float]:
-      The coefficients a, b, c for the Hirschmann (2010) solidus of peridotite, 
+      The coefficients a, b, c for the Hirschmann (2000) solidus of peridotite, 
       scaled to model's base units and adimensionalized if necessary.
     """
     hirschmann_scalings = {
@@ -311,18 +342,18 @@ class SolidusHirschmann2010(Solidus):
     **kwargs
   ) -> np.ndarray:
     """
-    Compute the solidus temperature using the Hirschmann (2010) formula for peridotite:
+    Compute the solidus temperature using the Hirschmann (2000) formula for peridotite:
 
     .. math::
       T_{solidus} = a P^2 + b P + c
 
-    where :math:`P` is the pressure and :math:`a`, :math:`b`, :math:`c` are the coefficients from Hirschmann (2010).
+    where :math:`P` is the pressure and :math:`a`, :math:`b`, :math:`c` are the coefficients from Hirschmann (2000).
 
     .. warning::
-      The solidus temperature is only valid for pressures below 10 GPa according to Hirschmann (2010).
+      The solidus temperature is only valid for pressures below 10 GPa according to Hirschmann (2000).
 
-    :param np.ndarray pressure_dynamic: the dynamic pressure field (Pa).
-    :param np.ndarray pressure_lithostatic: the lithostatic pressure field (Pa).
+    :param numpy.ndarray pressure_dynamic: the dynamic pressure field (Pa).
+    :param numpy.ndarray pressure_lithostatic: the lithostatic pressure field (Pa).
     :param bool add_adiabatic: if True, subtract the adiabatic temperature from the solidus temperature.
     :param bool adim: if True, the pressures are adimensional and the solidus temperature will be returned in adimensional units.
     :param float alpha: the thermal expansion coefficient (1/K).
@@ -330,9 +361,9 @@ class SolidusHirschmann2010(Solidus):
     :param float rho: the density (kg/m^3).
     :param float Cp: the specific heat (J/kg/K).
 
-    :return np.ndarray: the solidus temperature field (K).  
+    :return numpy.ndarray: the solidus temperature field (K).  
     """
-    a, b, c   = self.Hirschmann2010_coefficients()
+    a, b, c   = self.Hirschmann2000_coefficients()
     pressure  = pressure_dynamic + pressure_lithostatic
     T_solidus = a * pressure**2 + b * pressure + c
     return T_solidus

@@ -24,7 +24,7 @@ from .scaling import Scaling, scaling_factors
 from .fields import Field, StagField, DerivedField, Velocity, Pressure, SphericalField, CartesianGradient, SphericalVectorGradient, StagSurfaceField, fields_instances, surface_fields_instances, surface_layer_instances
 from .utils.io_utils import IOutils
 from .utils.solid_rotation import SolidBodyRotation
-from .utils.solidus import Solidus, SolidusHirschmann2010
+from .utils.solidus import Solidus, SolidusHirschmann2000
 
 # Define version
 __version__ = '0.1.0'
@@ -78,5 +78,5 @@ __all__ = [
   'IOutils',
   'SolidBodyRotation',
   'Solidus',
-  'SolidusHirschmann2010'
+  'SolidusHirschmann2000'
 ]

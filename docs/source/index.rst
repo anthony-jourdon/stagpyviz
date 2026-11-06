@@ -30,6 +30,7 @@ Contents
   api/timeseries
   api/utils
   api/solid_rotation
+  api/solidus
 
 .. toctree::
   :maxdepth: 1
