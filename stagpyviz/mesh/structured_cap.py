@@ -22,18 +22,18 @@ class StructuredCapMesh(FEStructuredMesh, SphericalGrid):
   If no StaggYY binary file is provided, the mesh can still be created from the VTS file, 
   but some functionalities may be unavailable.
 
-  :param str|Path rawbin: 
-    Path to the StaggYY binary file to read the mesh from. 
   :param args: 
     Additional positional arguments to pass to the parent class. 
     Can be used to provide a VTS file to load the mesh from.
+  :param str|Path rawbin: 
+    Path to the StaggYY binary file to read the mesh from. 
   :param deep: 
     If ``True``, a deep copy of the mesh will be created. If False, a shallow copy will be created. 
     Default is ``False``.
   :param kwargs: 
     Additional keyword arguments to pass to the parent class.
   """
-  def __init__(self, rawbin:str|Path|None=None, *args, deep:bool=False, **kwargs):
+  def __init__(self, *args, rawbin:str|Path|None=None, deep:bool=False, **kwargs):
     self.header:dict|None = None
     if rawbin is None:
       print(
@@ -92,7 +92,13 @@ class StructuredCapMesh(FEStructuredMesh, SphericalGrid):
     """
     t0 = perf_counter()
     n = self.dimensions
-    self[name] = np.reshape(values, (n[0]*n[1]*n[2]), order='F')
+    if values.ndim == 5: # vector field
+      bs = values.shape[0]
+      self[name] = np.zeros((n[0]*n[1]*n[2], bs), dtype=np.float64)
+      for d in range(bs):
+        self[name][:, d] = np.reshape(values[d, 0:n[0], 0:n[1], :, 0], (n[0]*n[1]*n[2]), order='F')
+    else:
+      self[name] = np.reshape(values[0:n[0], 0:n[1], :, 0], (n[0]*n[1]*n[2]), order='F')
     t1 = perf_counter()
     print(f"Field '{name}' added in {t1-t0:g} seconds")
     return
@@ -127,7 +133,7 @@ class StructuredCapMesh(FEStructuredMesh, SphericalGrid):
       Raw velocity components defined on the grid. 
       Should be a 4D array of shape ``(3, ni, nj, nk, 1)``, 
       where ``ni``, ``nj``, and ``nk`` are the dimensions of the nodes in the mesh.
-    :return: None. The velocity field is directly added to the mesh as a 3D vector field.
+    :return: None. The input array representing the velocity field is modified in place.
     :rtype: None
     """
     t0 = perf_counter()
@@ -150,10 +156,9 @@ class StructuredCapMesh(FEStructuredMesh, SphericalGrid):
     vx = v0*np.sin(lat)*np.cos(lon) - v1*np.sin(lon) + v2*np.cos(lat)*np.cos(lon)
     vy = v0*np.sin(lat)*np.sin(lon) + v1*np.cos(lon) + v2*np.cos(lat)*np.sin(lon)
     vz = -v0*np.cos(lat) + v2*np.sin(lat)
-    self["velocity"] = np.zeros((n[0]*n[1]*n[2], 3), dtype=np.float64)
-    self["velocity"][:,0] = np.reshape(vx, (n[0]*n[1]*n[2]), order='F')
-    self["velocity"][:,1] = np.reshape(vy, (n[0]*n[1]*n[2]), order='F')
-    self["velocity"][:,2] = np.reshape(vz, (n[0]*n[1]*n[2]), order='F')
+    velocity_raw[0,0:n[0],0:n[1],:,0] = vx
+    velocity_raw[1,0:n[0],0:n[1],:,0] = vy
+    velocity_raw[2,0:n[0],0:n[1],:,0] = vz
     t1 = perf_counter()
     print(f"Velocity reconstructed in {t1-t0:g} seconds")
     return

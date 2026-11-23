@@ -1,11 +1,13 @@
 try:
   from ..parsers import read_stag_bin
   from ..mesh.yinyang import YinYangMesh
+  from ..mesh.structured_cap import StructuredCapMesh
   from ..utils.io_utils import IOutils
   from ..scaling.scaling import Scaling, scaling_factors
 except ImportError:
   from stagpyviz.parsers import read_stag_bin
   from stagpyviz.mesh import YinYangMesh
+  from stagpyviz.mesh import StructuredCapMesh
   from stagpyviz.utils import IOutils
   from stagpyviz.scaling import Scaling, scaling_factors
 
@@ -27,15 +29,18 @@ class StagField(Field):
 
   :param str name: Name of the field, should correspond the the name registered in the IOutils class filelist attribute.
   :param stagpyviz.IOutils io_utils: Path and file management utilities
-  :param stagpyviz.YinYangMesh mesh: Volume mesh reconstructed as an unstructured grid
+  :param stagpyviz.YinYangMesh|stagpyviz.StructuredCapMesh mesh: 
+    Volume mesh reconstructed either as an unstructured grid 
+    (:py:class:`YinYangMesh <stagpyviz.YinYangMesh>`) 
+    or as a structured grid (:py:class:`StructuredCapMesh <stagpyviz.StructuredCapMesh>`).
   :param stagpyviz.Scaling|None scaling: 
     Scaling factor for the field, if the field is non-dimensional 
     and needs to be scaled to dimensional units, default: None.
   """
-  def __init__(self, name:str, io_utils:IOutils, mesh:YinYangMesh, scaling:Scaling|None=None):
+  def __init__(self, name:str, io_utils:IOutils, mesh:YinYangMesh|StructuredCapMesh, scaling:Scaling|None=None):
     super().__init__(name, scaling)
-    self.io_utils:IOutils       = io_utils
-    self.mesh:YinYangMesh       = mesh
+    self.io_utils:IOutils = io_utils
+    self.mesh:YinYangMesh|StructuredCapMesh = mesh
     self.values:np.ndarray|None = None
     return
   
@@ -113,13 +118,13 @@ class DerivedField(StagField):
 
   :param str name: Name of the field.
   :param stagpyviz.IOutils io_utils: Path and file management utilities
-  :param stagpyviz.YinYangMesh mesh: Volume mesh.
+  :param stagpyviz.YinYangMesh|stagpyviz.StructuredCapMesh mesh: Volume mesh.
   :param stagpyviz.Scaling|None scaling: 
     Scaling factor for the field, if the field is non-dimensional 
     and needs to be scaled to dimensional units, default: None.
   :param str prefix: Prefix to be added to the output file names, default: "".
   """
-  def __init__(self, name:str, io_utils:IOutils, mesh:YinYangMesh, scaling:Scaling|None=None):
+  def __init__(self, name:str, io_utils:IOutils, mesh:YinYangMesh|StructuredCapMesh, scaling:Scaling|None=None):
     super().__init__(name, io_utils, mesh, scaling)
     return
   
@@ -145,12 +150,12 @@ class Velocity(StagField):
 
   :param str name: Name of the field.
   :param stagpyviz.IOutils io_utils: Path and file management utilities
-  :param stagpyviz.YinYangMesh mesh: Volume mesh.
+  :param stagpyviz.YinYangMesh|stagpyviz.StructuredCapMesh mesh: Volume mesh.
   :param stagpyviz.Scaling|None scaling: 
     Scaling factor for the field, if the field is non-dimensional 
     and needs to be scaled to dimensional units, default: None.
   """
-  def __init__(self, name:str, io_utils:IOutils, mesh:YinYangMesh, scaling:Scaling|None=None):
+  def __init__(self, name:str, io_utils:IOutils, mesh:YinYangMesh|StructuredCapMesh, scaling:Scaling|None=None):
     super().__init__(name, io_utils, mesh, scaling)
     return
   
@@ -181,12 +186,12 @@ class Pressure(StagField):
 
   :param str name: Name of the field.
   :param stagpyviz.IOutils io_utils: Path and file management utilities
-  :param stagpyviz.YinYangMesh mesh: Volume mesh.
+  :param stagpyviz.YinYangMesh|stagpyviz.StructuredCapMesh mesh: Volume mesh.
   :param stagpyviz.Scaling|None scaling: 
     Scaling factor for the field, if the field is non-dimensional 
     and needs to be scaled to dimensional units, default: None.
   """
-  def __init__(self, name:str, io_utils:IOutils, mesh:YinYangMesh, scaling:Scaling|None=None):
+  def __init__(self, name:str, io_utils:IOutils, mesh:YinYangMesh|StructuredCapMesh, scaling:Scaling|None=None):
     super().__init__(name, io_utils, mesh, scaling)
     return
   
@@ -218,10 +223,10 @@ class SphericalField(DerivedField):
 
   :param str name: Name of the field.
   :param stagpyviz.IOutils io_utils: Path and file management utilities
-  :param stagpyviz.YinYangMesh mesh: Volume mesh.
+  :param stagpyviz.YinYangMesh|stagpyviz.StructuredCapMesh mesh: Volume mesh.
   :param stagpyviz.StagField cartesian_field: Cartesian field to be transformed into a spherical field.
   """
-  def __init__(self, name:str, io_utils:IOutils, mesh:YinYangMesh, cartesian_field:StagField):
+  def __init__(self, name:str, io_utils:IOutils, mesh:YinYangMesh|StructuredCapMesh, cartesian_field:StagField):
     # this field should not be scaled because it is derived from another field 
     # that is already scaled if scaling was required, 
     # so we pass None for the scaling argument
@@ -285,10 +290,10 @@ class CartesianGradient(DerivedField):
   
   :param str name: Name of the field.
   :param stagpyviz.IOutils io_utils: Path and file management utilities
-  :param stagpyviz.YinYangMesh mesh: Volume mesh.
+  :param stagpyviz.YinYangMesh|stagpyviz.StructuredCapMesh mesh: Volume mesh.
   :param stagpyviz.StagField field: Cartesian field for which the gradient is computed.
   """
-  def __init__(self, name:str, io_utils:IOutils, mesh:YinYangMesh, field:StagField):
+  def __init__(self, name:str, io_utils:IOutils, mesh:YinYangMesh|StructuredCapMesh, field:StagField):
     # gradients should not be scaled because they are derived from the original field
     # that is already scaled if scaling was required, 
     # so we pass None for the scaling argument
@@ -368,7 +373,7 @@ class SphericalVectorGradient(DerivedField):
     method of the mesh.
   
   """
-  def __init__(self, name:str, io_utils:IOutils, mesh:YinYangMesh, field:StagField):
+  def __init__(self, name:str, io_utils:IOutils, mesh:YinYangMesh|StructuredCapMesh, field:StagField):
     # gradients should not be scaled because they are derived from the original field
     # that is already scaled if scaling was required, 
     # so we pass None for the scaling argument
@@ -434,15 +439,15 @@ class StagSurfaceField(StagField):
 
   :param str name: Name of the field.
   :param stagpyviz.IOutils io_utils: Path and file management utilities
-  :param stagpyviz.YinYangMesh volume_mesh: Volume mesh.
-  :param stagpyviz.YinYangMesh surface_mesh: Surface mesh reconstructed as an unstructured grid with only the surface and CMB layers.
+  :param stagpyviz.YinYangMesh|stagpyviz.StructuredCapMesh volume_mesh: Volume mesh.
+  :param stagpyviz.YinYangMesh|stagpyviz.StructuredCapMesh surface_mesh: Surface mesh reconstructed as an unstructured grid with only the surface and CMB layers.
   :param stagpyviz.Scaling|None scaling: 
     Scaling factor for the field, if the field is non-dimensional and needs to be scaled to dimensional units, default: None.
   :param int nlayers: 
     Number of radial layers where the field is defined, default: 2 (surface and CMB). Can only be 1 (surface) or 2 (surface and CMB).
 
   """
-  def __init__(self, name:str, io_utils:IOutils, volume_mesh:YinYangMesh, surface_mesh:YinYangMesh, scaling:Scaling|None=None, **kwargs):
+  def __init__(self, name:str, io_utils:IOutils, volume_mesh:YinYangMesh|StructuredCapMesh, surface_mesh:YinYangMesh|StructuredCapMesh, scaling:Scaling|None=None, **kwargs):
     super().__init__(name, io_utils, surface_mesh, scaling)
     self.volume_mesh = volume_mesh
     self.nlayers = kwargs.get("nlayers", 2)
@@ -469,13 +474,13 @@ class StagSurfaceField(StagField):
       self.volume_mesh[self.name][v_pidx] = self.mesh[self.name][s_pidx]
     return 
 
-def fields_instances(io_utils:IOutils, mesh:YinYangMesh, scalings:dict[str, Scaling]={}) -> dict[str, StagField]:
+def fields_instances(io_utils:IOutils, mesh:YinYangMesh|StructuredCapMesh, scalings:dict[str, Scaling]={}) -> dict[str, StagField]:
   """
   Function to create and return a dictionary of field instances 
   for the volume fields that can be added to the mesh.
 
   :param stagpyviz.IOutils io_utils: Path and file management utilities
-  :param stagpyviz.YinYangMesh mesh: Volume mesh.
+  :param stagpyviz.YinYangMesh|stagpyviz.StructuredCapMesh mesh: Volume mesh.
   :param dict[str, stagpyviz.Scaling] scalings: 
     Dictionary of scaling factors for the fields, where the keys are the field 
     names and the values are the corresponding :py:class:`Scaling <stagpyviz.Scaling>` instances. 
@@ -546,14 +551,14 @@ def fields_instances(io_utils:IOutils, mesh:YinYangMesh, scalings:dict[str, Scal
 
   return field_classes
 
-def surface_fields_instances(io_utils:IOutils, volume_mesh:YinYangMesh, surface_mesh:YinYangMesh, scalings:dict[str, Scaling]={}) -> dict[str, StagSurfaceField]:
+def surface_fields_instances(io_utils:IOutils, volume_mesh:YinYangMesh|StructuredCapMesh, surface_mesh:YinYangMesh|StructuredCapMesh, scalings:dict[str, Scaling]={}) -> dict[str, StagSurfaceField]:
   """
   Function to create and return a dictionary of field instances 
   for the fields defined at the surface and the CMB that can be added to the mesh.
 
   :param stagpyviz.IOutils io_utils: Path and file management utilities
-  :param stagpyviz.YinYangMesh volume_mesh: Volume mesh.
-  :param stagpyviz.YinYangMesh surface_mesh: Mesh with only the surface and CMB layers.
+  :param stagpyviz.YinYangMesh|stagpyviz.StructuredCapMesh volume_mesh: Volume mesh.
+  :param stagpyviz.YinYangMesh|stagpyviz.StructuredCapMesh surface_mesh: Mesh with only the surface and CMB layers.
   :param dict[str, stagpyviz.Scaling] scalings: Dictionary of scaling factors for the fields.
     The keys are the field names and the values are the corresponding :py:class:`Scaling <stagpyviz.Scaling>` instances. 
     Default: empty dictionary, which means that all fields will be added to the mesh without scaling.
@@ -576,14 +581,14 @@ def surface_fields_instances(io_utils:IOutils, volume_mesh:YinYangMesh, surface_
   
   return field_classes
   
-def surface_layer_instances(io_utils:IOutils, volume_mesh:YinYangMesh, surface_mesh:YinYangMesh, scalings:dict[str, Scaling]={}) -> dict[str, StagSurfaceField]:
+def surface_layer_instances(io_utils:IOutils, volume_mesh:YinYangMesh|StructuredCapMesh, surface_mesh:YinYangMesh|StructuredCapMesh, scalings:dict[str, Scaling]={}) -> dict[str, StagSurfaceField]:
   """
   Function to create and return a dictionary of field instances 
   for the surface fields that can be added to the mesh.
 
   :param stagpyviz.IOutils io_utils: Path and file management utilities
-  :param stagpyviz.YinYangMesh volume_mesh: Volume mesh.
-  :param stagpyviz.YinYangMesh surface_mesh: Mesh with only the surface.
+  :param stagpyviz.YinYangMesh|stagpyviz.StructuredCapMesh volume_mesh: Volume mesh.
+  :param stagpyviz.YinYangMesh|stagpyviz.StructuredCapMesh surface_mesh: Mesh with only the surface.
   :param dict[str, stagpyviz.Scaling] scalings: Dictionary of scaling factors for the fields.
     The keys are the field names and the values are the corresponding :py:class:`Scaling <stagpyviz.Scaling>` instances. 
     Default: empty dictionary, which means that all fields will be added to the mesh without scaling.
