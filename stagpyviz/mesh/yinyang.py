@@ -1,24 +1,24 @@
 from pathlib import Path
-from functools import cached_property
 from time import perf_counter
 import pyvista as pvs
 import numpy as np
-from scipy.spatial import ConvexHull
 
 try:
-  from ..parsers import BinHeader64, BinHeader, read_stag_bin
+  from ..parsers import BinHeader, read_stag_bin
   from ..elements.wedge_3d import Wedge3D
-  from .spherical_3d import UnstructuredSphere
+  from .unstructured import FEUnstructuredMesh
+  from .spherical_3d import SphericalGrid
   from .shell import ShellMesh
   from ..scaling import Scaling
 except ImportError:
-  from stagpyviz.parsers import BinHeader64, BinHeader, read_stag_bin
+  from stagpyviz.parsers import BinHeader, read_stag_bin
   from stagpyviz.elements.wedge_3d import Wedge3D
-  from stagpyviz.mesh.spherical_3d import UnstructuredSphere
+  from stagpyviz.mesh.unstructured import FEUnstructuredMesh
+  from stagpyviz.mesh.spherical_3d import SphericalGrid
   from stagpyviz.mesh.shell import ShellMesh
   from stagpyviz.scaling import Scaling
 
-class YinYangMesh(UnstructuredSphere):
+class YinYangMesh(FEUnstructuredMesh, SphericalGrid):
   """
   A class to represent an unstructured mesh of a sphere reconstructed from a StagYY Yin-Yang grid.
   The mesh is discretized as a collection of wedge (prismatic) elements :math:`\\mathcal W_1`.
@@ -77,29 +77,7 @@ class YinYangMesh(UnstructuredSphere):
 
     :type: dict
 
-
-  .. py:attribute:: good_indices
-
-    Boolean array of shape ``(nx*ny*nz,)`` to flag the points that are not in the overlapping region between the Yin and Yang grids.
-
-    :type: numpy.ndarray
-
-
-  .. py:attribute:: points_per_layer
     
-    Number of points per radial layer in the Yin (or Yang) grid after removing the overlapping points.
-
-    :type: int
-
-
-  .. py:attribute:: surface_mesh
-
-    A surface mesh of the outer shell of the sphere generated from the points of the last radial layer of 
-    both grids.
-
-    :type: :py:class:`ShellMesh <stagpyviz.ShellMesh>`
-
-
   .. py:attribute:: elements
 
     An instance of the class :py:class:`Wedge3D <stagpyviz.Wedge3D>` 
@@ -107,59 +85,7 @@ class YinYangMesh(UnstructuredSphere):
 
     :type: :py:class:`Wedge3D <stagpyviz.Wedge3D>`
 
-
-  .. py:attribute:: grid_dimensions
-
-    Tuple of the dimensions of the Yin (or Yang) grid in the x, y and z directions.
-
-    :type: tuple[int,int,int]
-
-
-  .. py:attribute:: grid_npoints
-
-    Total number of points in the Yin (or Yang) grid.
-
-    :type: int
-
-
-  .. py:attribute:: yin_radial_idx
-
-    2D array of shape ``(points_per_layer, n_radial_layers)`` containing the indices of the points in the Yin grid reshaped radially.
-
-    :type: numpy.ndarray
-
-
-  .. py:attribute:: yang_radial_idx
-
-    2D array of shape ``(points_per_layer, n_radial_layers)`` containing the indices of the points in the Yang grid reshaped radially.
-
-    :type: numpy.ndarray
-
-
-  .. py:attribute:: surface_idx
-
-    1D array of shape ``(2*points_per_layer,)`` containing the indices of the points in the surface mesh 
-    (last radial layer of both grids).
-
-    :type: numpy.ndarray
-
-
-  .. py:attribute:: surface_cells
-
-    1D array of shape ``(number_of_surface_cells,)`` containing the indices of the cells in the surface mesh 
-    (last radial layer of both grids).
-
-    :type: numpy.ndarray
-
-
-  .. py:attribute:: cells_Jacobian
-
-    3D array of shape ``(number_of_cells, 3, 3)`` containing the Jacobian matrices 
-    of the transformation from the reference element to the physical element for each cell in the mesh.
-
-    :type: numpy.ndarray
-
-
+  
   Methods:
   --------
   """
@@ -205,6 +131,9 @@ class YinYangMesh(UnstructuredSphere):
   
   @property
   def grid_dimensions(self) -> tuple[int,int,int]:
+    """
+    Tuple of the dimensions of the Yin (or Yang) grid in the x, y and z directions.
+    """
     n = (
       self.header['ntot'][0],
       self.header['ntot'][1],
@@ -214,6 +143,9 @@ class YinYangMesh(UnstructuredSphere):
   
   @property
   def grid_npoints(self) -> int:
+    """
+    Total number of points in the Yin (or Yang) grid.
+    """
     n = self.grid_dimensions
     return n[0]*n[1]*n[2]
   
@@ -290,6 +222,10 @@ class YinYangMesh(UnstructuredSphere):
   
   @property
   def good_indices(self) -> np.ndarray:
+    """
+    Boolean array of shape ``(nx*ny*nz,)`` to flag the points that are not in the overlapping 
+    region between the Yin and Yang grids.
+    """
     if self._good_indices is None:
       self.generate_good_indices()
     return self._good_indices
@@ -307,6 +243,9 @@ class YinYangMesh(UnstructuredSphere):
   
   @property
   def points_per_layer(self) -> np.int32:
+    """
+    Number of points per radial layer in the Yin (or Yang) grid after removing the overlapping points.
+    """
     if self._points_per_layer is None:
       self.generate_points_per_layer()
     return self._points_per_layer
@@ -349,12 +288,20 @@ class YinYangMesh(UnstructuredSphere):
   
   @property
   def yin_radial_idx(self) -> np.ndarray:
+    """
+    2D array of shape ``(points_per_layer, n_radial_layers)`` 
+    containing the indices of the points in the Yin grid reshaped radially.
+    """
     if "idx" not in self.yin:
       self.generate_radial_indices()
     return self.yin["idx"]
   
   @property
   def yang_radial_idx(self) -> np.ndarray:
+    """
+    2D array of shape ``(points_per_layer, n_radial_layers)`` 
+    containing the indices of the points in the Yang grid reshaped radially.
+    """
     if "idx" not in self.yang:
       self.generate_radial_indices()
     return self.yang["idx"]
@@ -385,6 +332,11 @@ class YinYangMesh(UnstructuredSphere):
 
   @property
   def surface_idx(self) -> np.ndarray:
+    """
+    1D array of shape ``(2*points_per_layer,)`` 
+    containing the indices of the points in the surface mesh 
+    (last radial layer of both grids).
+    """
     n = self.grid_dimensions
     return self.get_radial_indices(k=n[2]-1)
   
@@ -410,11 +362,20 @@ class YinYangMesh(UnstructuredSphere):
 
   @property
   def surface_cells(self) -> np.ndarray:
+    """
+    1D array of shape ``(number_of_surface_cells,)`` 
+    containing the indices of the cells in the surface mesh 
+    (last radial layer of both grids).
+    """
     n = self.grid_dimensions
     return self.get_radial_cells(k=n[2]-1)
 
   @property
   def surface_mesh(self) -> ShellMesh:
+    """
+    A surface mesh of the outer shell of the sphere generated from 
+    the points of the last radial layer of both grids.
+    """
     if self._surface_mesh is None:
       self.generate_surface_mesh()
     return self._surface_mesh
@@ -657,79 +618,12 @@ class YinYangMesh(UnstructuredSphere):
       self.add_field(key, fields[key])
     return
 
-  @property
-  def cells_Jacobian(self) -> np.ndarray:
-    if self._cells_Jacobian is None:
-      elidx = self.cell_connectivity.reshape((self.number_of_cells, self.nodes_per_el))
-      elcoords = self.points[ elidx, : ]  # (number_of_cells, nodes_per_el, 3)
-      GNi = self.elements.GNi_centroid()
-      J = self.elements.evaluate_Jacobian(GNi, elcoords)  # (number_of_cells, 3, 3)
-      self._cells_Jacobian = J
-    return self._cells_Jacobian
-
-  def compute_gradient(self, field:np.ndarray) -> np.ndarray:
-    """
-    Compute the Cartesian gradient of a scalar field defined on the mesh 
-    using the shape functions of the wedge elements.
-
-    :param numpy.ndarray field:
-      The scalar field defined on the mesh for which the gradient is to be computed.
-      The array should have shape ``(number_of_points,)``.
-    :return:
-      The gradient of the field at the centroids of the elements.
-      The array has shape ``(number_of_cells, 3)``, 
-      where the last dimension corresponds to the x, y and z components of the gradient.
-    :rtype: numpy.ndarray
-    
-    """
-    t0 = perf_counter()
-    elidx = self.cell_connectivity.reshape((self.number_of_cells, self.nodes_per_el))
-    GNi   = self.elements.GNi_centroid()
-    J     = self.cells_Jacobian  # (number_of_cells, 3, 3)
-    detJ  = self.elements.evaluate_detJ(J)
-    invJ  = self.elements.evaluate_invJ(J, detJ)
-    dNdx  = self.elements.evaluate_dNidx(invJ, GNi)  # (number_of_cells, nodes_per_el, 3)
-    # Gather field values at element nodes
-    field_el = field[ elidx ]  # (number_of_cells, nodes_per_el)
-    grad_field = np.einsum('eki,ek...->ei...', dNdx, field_el)
-    t1 = perf_counter()
-    print(f"Gradient computation performed in {t1-t0:g} seconds")
-    return grad_field
-
-  @property
-  def cells_volume(self) -> np.ndarray:
-    if self._cells_volume is None:
-      elidx     = self.cell_connectivity.reshape((self.number_of_cells, self.elements.basis_per_el))
-      el_coords = self.points[ elidx, : ]
-      self._cells_volume = self.elements.evaluate_volume(el_coords,rule=1)
-    return self._cells_volume
-
-  def integrate_cell_field(self, field:np.ndarray) -> np.ndarray:
-    if not self.is_cell_field(field):
-      raise ValueError(f"Field of shape {field.shape} must match number of cells {self.number_of_cells} to be integrated with integrate_cell_field()")
-    return np.einsum('e...,e->e...', field, self.cells_volume)
-
-  def integrate_1pt_rule(self, field:np.ndarray) -> np.ndarray:
-    if self.is_cell_field(field):
-      return self.integrate_cell_field(field)
-    elif self.is_point_field(field):
-      t0 = perf_counter()
-      elidx = self.cell_connectivity.reshape((self.number_of_cells, self.elements.basis_per_el))
-      el_coords = self.points[ elidx, : ]  # (number_of_cells, nodes_per_el, 3)
-      field_el = field[ elidx ]  # (number_of_cells, nodes_per_el)
-      t1 = perf_counter()
-      integral = self.elements.integrate_field(el_coords, field_el, rule=1, Jacobian=self.cells_Jacobian)
-      print(f"Field integrated with 1 point rule in {t1-t0:g} seconds")
-      return integral
-    else:
-      raise ValueError(f"Field of shape {field.shape} must be either a point field with shape ({self.number_of_points},) or a cell field with shape ({self.number_of_cells},) to be integrated with integrate_1pt_rule()")
-  
   def integrate_3x2pt_rule(self, field:np.ndarray) -> np.ndarray:
     t0 = perf_counter()
     if not self.is_point_field(field):
       raise ValueError(f"Field of shape {field.shape} must match number of points {self.number_of_points} to be integrated with integrate_3x2pt_rule()")
     t0 = perf_counter()
-    elidx = self.cell_connectivity.reshape((self.number_of_cells, self.elements.basis_per_el))
+    elidx = self.elidx
     el_coords = self.points[ elidx, : ]  # (number_of_cells, nodes_per_el, 3)
     field_el = field[ elidx ]  # (number_of_cells, nodes_per_el, ...)
     int_field = self.elements.integrate_field(el_coords, field_el, rule=6)

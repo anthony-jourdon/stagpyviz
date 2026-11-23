@@ -1,41 +1,45 @@
 import numpy as np
-from pyvista import DataSet, PointGrid
+from pyvista import DataSet
 
 from time import perf_counter
 
+try:
+  from .femesh import FEMesh
+except ImportError:
+  from stagpyviz.mesh import FEMesh
+
 class SphericalGeometry(DataSet):
+  """
+  Class providing methods for spherical geometry operations, 
+  including coordinate transformations and vector field transformations between Cartesian and Spherical coordinates.
+
+  .. note::
+    This class operates on points. It does not require a mesh, arbitrary point clouds can be used.
+    Therefore, no mesh-type operations are implemented in this class.
+    For operations involving meshes, use the :py:class:`SphericalGrid <stagpyviz.SphericalGrid>` class which 
+    inherits from this class and :py:class:`FEMesh <stagpyviz.FEMesh>`.
+
+  See :py:class:`DataSet <pyvista.DataSet>` for more information on the class constructor and the inherited base class.
+  """
   def __init__(self, *args, **kwargs):
     super().__init__(*args, **kwargs)
     self._points_spherical = None
     return
 
-  def is_point_field(self, field:np.ndarray) -> bool:
+  @property 
+  def points_spherical(self) -> np.ndarray:
     """
-    Check if the input field is a point field.
-
-    :param numpy.ndarray field: The field to check.
-    :return: True if the field is a point field, False otherwise.
-    :rtype: bool
+    Returns the spherical coordinates of the points in the mesh.
+    Shape is ``(number_of_points, 3)`` where the last dimension corresponds to ``(R, theta, phi)``.
     """
-    if field.shape[0] == self.number_of_points:
-      return True
-    return False
-  
-  def create_point_field(self, bs:int=1, dtype:np.dtype=np.float64) -> np.ndarray:
-    """
-    Create a point field initialized with zeros.
-    
-    :param int bs: The number of components of the field. Default is 1 (scalar field).
-    :param numpy.dtype dtype: The data type of the field. Default is ``np.float64``.
-    :return: 
-      A point field initialized with zeros.
-      Scalar fields have shape ``(number_of_points,)``, vector fields have shape ``(number_of_points, bs)``.
-    :rtype: numpy.ndarray
-    """
-    if bs == 1:
-      return np.zeros( (self.number_of_points), dtype=dtype )
-    else:
-      return np.zeros( (self.number_of_points, bs), dtype=dtype )
+    if self._points_spherical is None:
+      self._points_spherical = np.zeros( (self.number_of_points, 3), dtype=np.float64 )
+      self._points_spherical[:,0], self._points_spherical[:,1], self._points_spherical[:,2] = self.cartesian_to_spherical(
+        self.points[:,0],
+        self.points[:,1],
+        self.points[:,2]
+      )
+    return self._points_spherical
 
   def cartesian_to_spherical(
       self,
@@ -104,17 +108,6 @@ class SphericalGeometry(DataSet):
     z = R*np.sin(lat)
     return x,y,z
   
-  @property 
-  def points_spherical(self) -> np.ndarray:
-    if self._points_spherical is None:
-      self._points_spherical = np.zeros( (self.number_of_points, 3), dtype=np.float64 )
-      self._points_spherical[:,0], self._points_spherical[:,1], self._points_spherical[:,2] = self.cartesian_to_spherical(
-        self.points[:,0],
-        self.points[:,1],
-        self.points[:,2]
-      )
-    return self._points_spherical
-
   def rotation_matrix(self,theta:np.ndarray,phi:np.ndarray) -> np.ndarray:
     """
     Computes the rotation matrix for Cartesian - Spherical vector transformations at given 
@@ -212,53 +205,18 @@ class SphericalGeometry(DataSet):
     print(f"spherical to cartesian vector transformation performed in {t1-t0:g} seconds")
     return v_cartesian
 
-class SphericalGrid(PointGrid, SphericalGeometry):
+class SphericalGrid(FEMesh, SphericalGeometry):
   def __init__(self, *args, **kwargs):
     super().__init__(*args, **kwargs)
-    self._centroids = None
     self._centroids_spherical = None
     return
 
-  def is_cell_field(self, field:np.ndarray) -> bool:
-    """
-    Check if the input field is a cell field.
-
-    :param numpy.ndarray field: The field to check.
-    :return: True if the field is a cell field, False otherwise.
-    :rtype: bool
-    """
-    if field.shape[0] == self.number_of_cells:
-      return True
-    return False
-  
-  def create_cell_field(self, bs:int=1, dtype:np.dtype=np.float64) -> np.ndarray:
-    """
-    Create a cell field initialized with zeros.
-
-    :param int bs: The number of components of the field. Default is 1 (scalar field).
-    :param numpy.dtype dtype: The data type of the field. Default is ``np.float64``.
-    :return: 
-      A cell field initialized with zeros.
-      Scalar fields have shape ``(number_of_cells,)``, vector fields have shape ``(number_of_cells, bs)``.
-    :rtype: numpy.ndarray
-    """
-    if bs == 1:
-      return np.zeros( (self.number_of_cells), dtype=dtype )
-    else:
-      return np.zeros( (self.number_of_cells, bs), dtype=dtype )
-
-  @property
-  def centroids(self) -> np.ndarray:
-    if self._centroids is None:
-      elidx = self.cell_connectivity.reshape((self.number_of_cells, self.elements.basis_per_el))
-      elcoords = self.points[elidx, :]
-      Ni_centroid = self.elements.Ni_centroid()
-      self._centroids = np.einsum('k,eki->ei',Ni_centroid,elcoords)
-      #self.cell_centers().points
-    return self._centroids
-
   @property
   def centroids_spherical(self) -> np.ndarray:
+    """
+    Returns the spherical coordinates of the centroids of the cells in the mesh.
+    Shape is ``(number_of_cells, 3)`` where the last dimension corresponds to ``(R, theta, phi)``.
+    """
     centroids = self.centroids
     if self._centroids_spherical is None:
       self._centroids_spherical = np.zeros( (self.number_of_cells, 3), dtype=np.float64 )

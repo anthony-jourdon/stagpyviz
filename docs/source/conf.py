@@ -21,7 +21,7 @@ sys.path.insert(0, module_dir)
 project = 'stagpyviz'
 copyright = '2026, Anthony Jourdon'
 author = 'Anthony Jourdon'
-release = '1.0.0'
+release = '1.1.0'
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration

@@ -16,14 +16,29 @@ from . import scaling
 from . import fields
 
 # Import specific classes for convenience at package level
+# parsers for stag binary files
 from .parsers import BinHeader, BinHeader64, read_stag_bin
-from .mesh import SphericalMesh, Hex2DMesh, UnstructuredSphere, ShellMesh, YinYangMesh
-from .elements import Element, Element2D, Element3D, SurfaceElement, Q1_2D, P1_2D, Wedge3D, P1_2D_R3
+# mesh classes
+from .mesh import FEMesh
+from .mesh import FEStructuredMesh, FEUnstructuredMesh
+from .mesh import SphericalGeometry, SphericalGrid
+from .mesh import StructuredCapMesh, ShellMesh, YinYangMesh
+# 2D (WIP)
+from .mesh import SphericalMesh, Hex2DMesh
+# elements
+from .elements import Element, Element2D, Element3D, SurfaceElement 
+from .elements import Q1_2D, Q1_3D, P1_2D, Wedge3D, P1_2D_R3
+# timeseries utilities
 from .utils.timeseries import write_timeseries_pvd, append_timeseries_pvd, timeseries_compare, timeseries_write_new, timeseries_append, timeseries_write, timeseries_process, timeseries_write_step
+# scaling utilities
 from .scaling import Scaling, scaling_factors
+# fields
 from .fields import Field, StagField, DerivedField, Velocity, Pressure, SphericalField, CartesianGradient, SphericalVectorGradient, StagSurfaceField, fields_instances, surface_fields_instances, surface_layer_instances
+# IO
 from .utils.io_utils import IOutils
+# solid rotation
 from .utils.solid_rotation import SolidBodyRotation
+# solidus
 from .utils.solidus import Solidus, SolidusHirschmann2000
 
 # Define version
@@ -38,7 +53,12 @@ __all__ = [
   'mesh',
   'SphericalMesh',
   'Hex2DMesh',
-  'UnstructuredSphere',
+  'FEMesh',
+  'FEStructuredMesh',
+  'FEUnstructuredMesh',
+  'SphericalGeometry',
+  'SphericalGrid',
+  'StructuredCapMesh',
   'ShellMesh',
   'YinYangMesh',
   'elements',
@@ -47,6 +67,7 @@ __all__ = [
   'Element3D',
   'SurfaceElement',
   'Q1_2D',
+  'Q1_3D',
   'P1_2D',
   'Wedge3D',
   'P1_2D_R3',

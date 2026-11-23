@@ -35,6 +35,10 @@ Specific element types
   :members:
   :show-inheritance:
 
+.. autoclass:: stagpyviz.Q1_3D
+  :members:
+  :show-inheritance:
+
 .. autoclass:: stagpyviz.Wedge3D
   :members:
   :show-inheritance:

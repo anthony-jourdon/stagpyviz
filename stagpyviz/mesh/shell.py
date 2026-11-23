@@ -6,17 +6,19 @@ from scipy.spatial import ConvexHull
 
 try:
   from ..elements.p1_2d import P1_2D_R3
-  from .spherical_3d import UnstructuredSphere
+  from .unstructured import FEUnstructuredMesh
+  from .spherical_3d import SphericalGrid
   from ..scaling import Scaling
 except ImportError:
   from stagpyviz.elements.p1_2d import P1_2D_R3
-  from stagpyviz.mesh.spherical_3d import UnstructuredSphere
+  from stagpyviz.mesh.unstructured import FEUnstructuredMesh
+  from stagpyviz.mesh.spherical_3d import SphericalGrid
   from stagpyviz.scaling import Scaling
 
-class ShellMesh(UnstructuredSphere):
+class ShellMesh(FEUnstructuredMesh, SphericalGrid):
   """
   Class representing the surface mesh of a spherical shell, which can be loaded from a VTU file or created from a point cloud.
-  Inherits from :py:class:`UnstructuredSphere` and `pyvista.UnstructuredGrid`_.
+  Inherits from :py:class:`FEUnstructuredMesh` and :py:class:`SphericalGrid`.
   
   The mesh is represented as a collection of triangular facets defining :math:`\\mathcal P_1` elements in :math:`\\mathbb R^3`
   using the class :py:class:`P1_2D_R3`.
@@ -46,47 +48,6 @@ class ShellMesh(UnstructuredSphere):
     Keyword arguments to be passed to the parent class constructor.
     See `pyvista.UnstructuredGrid`_ for more details.
   
-
-  :Attributes:
-
-  .. py:attribute:: elements
-    
-    The isoparametric element class representing triangular facets in 3D space.
-
-    :type: :py:class:`P1_2D_R3 <stagpyviz.P1_2D_R3>`
-
-  .. py:attribute:: points_normal
-
-    An array of shape ``(number_of_points, 3)`` containing the normal vectors at each point.
-    The normals are evaluated as the normalized position vectors of the points.
-
-    :type: numpy.ndarray
-
-  .. py:attribute:: cells_normal
-
-    An array of shape ``(number_of_cells, 3)`` containing the normal vectors at each cell (facet).
-    The normals are evaluated as the normalized position vectors of the cell centroids.
-
-    :type: numpy.ndarray
-
-  .. py:attribute:: neighbors
-
-    An array of shape ``(number_of_cells, 3)`` containing the indices of neighboring cells across each facet.
-    This attribute is only available if the mesh was created from a points array or if the VTU file from which the mesh was loaded contained this information,
-    and is stored in the cell data under the key ``"neighbors"``.
-
-    :type: numpy.ndarray
-
-  .. py:attribute:: cells_area
-
-    An array of shape ``(number_of_cells,)`` containing the area of each triangular facet.
-    The area is computed using the determinant of the Jacobian of the transformation from the reference element to the physical element such that:
-    :math:`A_e = \\frac{1}{2} |\\det(J_e)|`.
-
-    :type: numpy.ndarray
-
-  Methods:
-  --------
   """
   def __init__(self, *args, deep:bool=False, **kwargs):
     self.elements:P1_2D_R3 = P1_2D_R3()
@@ -131,15 +92,6 @@ class ShellMesh(UnstructuredSphere):
       super().__init__(*args, deep=deep, **kwargs)
       #raise ValueError("ShellMesh constructor requires a VTU file path, an UnstructuredGrid, or a points array.")
     return
-  
-  @property
-  def centroids(self) -> np.ndarray:
-    if self._centroids is None:
-      elidx = self.cell_connectivity.reshape((self.number_of_cells, self.elements.basis_per_el))
-      elcoords = self.points[elidx, :]
-      centroids = self.elements.evaluate_element_centroid(elcoords)
-      self._centroids = centroids
-    return self._centroids
 
   def compute_normals(self, point_normals:bool=True, cell_normals:bool=True):
     if point_normals:
@@ -156,56 +108,56 @@ class ShellMesh(UnstructuredSphere):
 
   @property
   def points_normal(self) -> np.ndarray:
+    """
+    Returns the normal vectors at each point in the mesh.
+    Array of shape ``(number_of_points, 3)``.
+    The normals are evaluated as the normalized position vectors of the points.
+    """
     if "normals" not in self.point_data:
       self.compute_normals(point_normals=True, cell_normals=False)
     return self.point_data["normals"]
   
   @property
   def cells_normal(self) -> np.ndarray:
+    """
+    Returns the normal vectors at each cell (facet) in the mesh.
+    Array of shape ``(number_of_cells, 3)``.
+    The normals are evaluated as the normalized position vectors of the cell centroids.
+    """
     if "normals" not in self.cell_data:
       self.compute_normals(point_normals=False, cell_normals=True)
     return self.cell_data["normals"]
   
   @property
   def neighbors(self) -> np.ndarray:
+    """
+    Returns the indices of neighboring cells across each facet.
+    An array of shape ``(number_of_cells, 3)``. 
+    This attribute is only available if the mesh was created from a points array or if the VTU file from which the mesh was loaded contained this information,
+    and is stored in the cell data under the key ``"neighbors"``.
+    """
     if "neighbors" not in self.cell_data:
       raise ValueError("Neighbors information not available in cell data.")
     return self.cell_data["neighbors"]
 
   @property
   def cells_area(self) -> np.ndarray:
-    if self._cells_area is None:
-      # Compute the area of each triangle
-      elidx = self.cell_connectivity.reshape((self.number_of_cells, self.elements.basis_per_el))
-      el_coords = self.points[elidx, :]
-      self._cells_area = self.elements.evaluate_volume(el_coords, rule=1)
-    return self._cells_area
+    """
+    Returns the area of each triangular facet in the mesh.
+    Array of shape ``(number_of_cells,)``.
+    The area is computed using the determinant of the Jacobian of the transformation from the 
+    reference element to the physical element such that:
+    :math:`A_e = \\frac{1}{2} |\\det(J_e)|`.
+    """
+    return self.cells_volume
   
-  def integrate_cell_field(self, cfield:np.ndarray) -> np.ndarray:
-    if not self.is_cell_field(cfield):
-      raise ValueError(f"Field of shape {cfield.shape} must match number of cells {self.number_of_cells} to be integrated with integrate_cell_field()")
-    return np.einsum('e...,e->e...', cfield, self.cells_area)
-
-  def integrate_1pt_rule(self, field:np.ndarray) -> np.ndarray:
-    if self.is_cell_field(field):
-      return self.integrate_cell_field(field)
-    elif self.is_point_field(field):
-      # Get the field values at the nodes of each element
-      elidx = self.cell_connectivity.reshape((self.number_of_cells, self.elements.basis_per_el))
-      el_coords = self.points[elidx, :]
-      field_el = field[elidx]  # (number_of_cells, nodes_per_el)
-      integral = self.elements.integrate_field(el_coords, field_el, rule=1)
-      return integral
-    else:
-      raise ValueError(f"Field of shape {field.shape} must be either a point field with shape ({self.number_of_points},) or a cell field with shape ({self.number_of_cells},) to be integrated with integrate_1pt_rule()")
-
   def integrate_3pt_rule(self, field:np.ndarray) -> np.ndarray:
     if not self.is_point_field(field):
       raise ValueError(f"Field of shape {field.shape} must match number of points {self.number_of_points} to be integrated with integrate_3pt_rule()")
     t0 = perf_counter()
-    elidx = self.cell_connectivity.reshape((self.number_of_cells, self.elements.basis_per_el))
+    elidx = self.elidx
     el_coords = self.points[elidx, :]  # (number_of_cells, nodes_per_el, 3)
-    field_el = field[elidx]  # (number_of_cells, nodes_per_el)
+    field_el = field[ elidx ]  # (number_of_cells, nodes_per_el)
     int_field = self.elements.integrate_field(el_coords, field_el, rule=3)
     t1 = perf_counter()
     print(f"Field integrated with 3 point rule in {t1-t0:g} seconds")
@@ -213,17 +165,19 @@ class ShellMesh(UnstructuredSphere):
 
   def integrate_over_cell(self, field:np.ndarray, rule:str="1pt") -> np.ndarray:
     """
-    Compute the numerical integral of a field over each cell of the mesh using a 1 point quadrature rule.
+    Compute the numerical integral of a field over each cell of the mesh using
+    either a 1 point or 3 point quadrature rule.
     The field can be either a point field (defined at mesh points) or a cell field (defined at mesh cells). 
-    If the field is a point field, it will be interpolated to cell centroids using the shape functions 
-    of the elements evaluated at the cell centroids before integration. 
-    The integral over each cell is computed such that:
+    If the field is a point field, it will be interpolated to quadrature points location using the shape functions 
+    of the elements evaluated at the quadrature points before integration. 
+    For a 1 point quadrature rule, the integral over each cell is computed such that:
 
     .. math:: 
       I_e = \\int_{\\Omega_e} \\phi_e \\, dS \\approx \\phi_e A_e
     
     where :math:`\\phi_e` is the value of the field at the cell centroid and :math:`A_e` is the area of the cell.
-
+    For higher order quadrature rules see :py:meth:`integrate_field <stagpyviz.Element.integrate_field>`.
+    
     :param field: A 1D array containing the values of the field to integrate, either at points or at cells.
     :type field: numpy.ndarray
     :return: A 1D array of shape ``(number_of_cells,)`` containing the integral of the field over each cell.
