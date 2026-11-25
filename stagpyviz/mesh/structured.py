@@ -147,3 +147,47 @@ class FEStructuredMesh(FEMesh, StructuredGrid):
     nel  = n - 1
     grid = self.element_grid
     return self.get_layer_indices(axis, index, nel, grid)
+
+  def extract_subset(
+      self, 
+      voi:list[int]|tuple[int]|np.ndarray, 
+      rate:tuple[int]|list[int]|np.ndarray=(1, 1, 1), 
+      boundary:bool=False
+    ):
+    """
+    Extract a subset of the structured mesh. Overloads
+    :py:meth:`extract_subset <pyvista.StructuredGrid.extract_subset>` 
+    to return a new instance of 
+    :py:class:`FEStructuredMesh` instead of a 
+    :py:class:`pyvista.StructuredGrid`.
+    See :py:meth:`extract_subset <pyvista.StructuredGrid.extract_subset>` 
+    for more details.
+
+    :param sequence[int] voi: 
+      Length 6 iterable of ``int``
+      s: ``(x_min, x_max, y_min, y_max, z_min, z_max)``.
+      These bounds specify the volume of interest in i-j-k min/max
+      indices.
+    :param sequence[int] rate: 
+      Length 3 iterable of ``int``
+      s: ``(xrate, yrate, zrate)``.
+      Defaults to ``(1, 1, 1)``. 
+      These values specify the sampling rate in each direction.
+    :param bool boundary: 
+      Control whether to enforce that the "boundary" of the grid
+      is output in the subsampling process. (This only has
+      effect when the rate in any direction is not equal to
+      1). When this is on, the subsampling will always include
+      the boundary of the grid even if the sample rate is
+      not an even multiple of the grid dimensions.
+    :return: A new :py:class:`FEStructuredMesh` mesh containing the extracted subset.
+    :rtype: FEStructuredMesh
+    """
+    mesh = super().extract_subset(voi, rate=rate, boundary=boundary)
+    result = FEStructuredMesh(mesh.x, mesh.y, mesh.z, deep=True)
+    # Copy any point/cell data from original mesh
+    for key, value in mesh.point_data.items():
+      result.point_data[key] = value
+    for key, value in mesh.cell_data.items():
+      result.cell_data[key] = value
+    return result
