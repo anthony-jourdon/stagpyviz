@@ -1,8 +1,8 @@
-Yin-Yang 3D grid post-processing
-================================
+Yin-Yang and spherical cap 3D grids post-processing
+===================================================
 
-For a simple post-processing of StagYY output on a Yin-Yang grid,
-the script ``postproc_3d_yinyang.py`` provides a way to write vtu files 
+For a simple post-processing of StagYY output on a Yin-Yang or spherical cap 3D grid,
+the script ``postproc_3d_yinyang.py`` provides a way to write VTK files 
 and a pvd timeseries file for visualization in Paraview. 
 The script is located in the ``examples`` directory of the package.
 
@@ -224,7 +224,18 @@ The scaling information is provided in the ``scaling`` section of the configurat
 If ``scale`` is set to true but nothing else is provided, a default value of ``Ra = 1e7``
 and default values for the scaling factors and units of the different fields will be used.
 
-5. A complete example
+5. Definig mesh type
+--------------------
+To define if the mesh is a Yin-Yang mesh or a spherical cap mesh,
+the user can provide the following information in the configuration file:
+
+.. code-block:: yaml
+
+  mesh_type: "yinyang" # or "spherical_cap"
+
+By default, the `mesh_type` is set to "yinyang" if not provided in the configuration file. 
+
+6. A complete example
 ---------------------
 Here is a complete example of a configuration file for the script:
 
@@ -236,6 +247,8 @@ Here is a complete example of a configuration file for the script:
     base:
       model: "path/to/model/directory"
       output: "path/to/output/directory"
+  
+  mesh_type: "yinyang" # or "spherical_cap"
 
   fields:
     process:
@@ -281,7 +294,7 @@ Here is a complete example of a configuration file for the script:
       factor: 3300
       unit: "kg/m**3"
 
-6. Running the script
+7. Running the script
 ----------------------
 To run the script, simply execute the following command in the terminal:
 

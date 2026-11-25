@@ -8,10 +8,12 @@ try:
   from ..parsers import read_stag_bin
   from .structured import FEStructuredMesh
   from .spherical_3d import SphericalGrid
+  from ..scaling import Scaling
 except ImportError:
   from stagpyviz.parsers import read_stag_bin
   from stagpyviz.mesh import FEStructuredMesh
   from stagpyviz.mesh import SphericalGrid
+  from stagpyviz.scaling import Scaling
 
 class StructuredCapMesh(FEStructuredMesh, SphericalGrid):
   """
@@ -45,6 +47,8 @@ class StructuredCapMesh(FEStructuredMesh, SphericalGrid):
         )
     else:
       self.header, _ = read_stag_bin(rawbin)
+
+    self.scaling:Scaling|None = kwargs.pop("scaling", None)
     
     # Check if user provided a VTS file to load the mesh from
     if len(args) == 1 and isinstance(args[0], (Path, str)):
@@ -85,6 +89,10 @@ class StructuredCapMesh(FEStructuredMesh, SphericalGrid):
     lon = Y - 0.75*np.pi
     # convert to Cartesian coordinates
     X,Y,Z = self.spherical_to_cartesian(R, lat, lon)
+    if self.scaling is not None:
+      X = self.scaling.dim(X)
+      Y = self.scaling.dim(Y)
+      Z = self.scaling.dim(Z)
     # Create the structured grid
     super().__init__(X, Y, Z)
     return
@@ -178,6 +186,16 @@ class StructuredCapMesh(FEStructuredMesh, SphericalGrid):
       rate:tuple[int]|list[int]|np.ndarray=(1, 1, 1), 
       boundary:bool=False
     ):
+    """
+    Extract a subset of the mesh based on the specified volume of interest (VOI) and sampling rate.
+    Overloads :py:meth:`FEStructuredMesh.extract_subset <stagpyviz.FEStructuredMesh.extract_subset>` 
+    to return a new instance of :py:class:`StructuredCapMesh`.
+    See :py:meth:`FEStructuredMesh.extract_subset <stagpyviz.FEStructuredMesh.extract_subset>` 
+    for details.
+
+    :return: A new instance of :py:class:`StructuredCapMesh` representing the extracted subset.
+    :rtype: StructuredCapMesh
+    """
     mesh = super().extract_subset(voi, rate=rate, boundary=boundary)
     # create a new StructuredCapMesh object from the extracted subset
     result = StructuredCapMesh(mesh.x, mesh.y, mesh.z, deep=True)
