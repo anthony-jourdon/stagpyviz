@@ -36,10 +36,13 @@ class StructuredCapMesh(FEStructuredMesh, SphericalGrid):
   def __init__(self, *args, rawbin:str|Path|None=None, deep:bool=False, **kwargs):
     self.header:dict|None = None
     if rawbin is None:
-      print(
-        "WARNING: No StaggYY binary file provided."
-        "The mesh will be created from the VTS file only, but some functionalities may be unavailable."
-      )
+      # check if user provided the header information in the kwargs
+      self.header = kwargs.pop("header", None)
+      if self.header is None:
+        print(
+          "WARNING: No StaggYY binary file provided, or no header information provided in the kwargs. "
+          "The mesh will be created from the VTS file only, but some functionalities may be unavailable."
+        )
     else:
       self.header, _ = read_stag_bin(rawbin)
     
@@ -51,10 +54,16 @@ class StructuredCapMesh(FEStructuredMesh, SphericalGrid):
         super().__init__(mesh, deep=deep, **kwargs)
         t1 = perf_counter()
         print(f"VTS file loaded in {t1-t0:g} seconds")
-    else:
+    elif rawbin is not None:
       # Create the mesh from the header information
       t0 = perf_counter()
       self.create_mesh()
+      t1 = perf_counter()
+      print(f"Mesh created in {t1-t0:g} seconds")
+    else:
+      # attempt to create the mesh from given arguments, if any
+      t0 = perf_counter()
+      super().__init__(*args, deep=deep, **kwargs)
       t1 = perf_counter()
       print(f"Mesh created in {t1-t0:g} seconds")
     
@@ -162,4 +171,19 @@ class StructuredCapMesh(FEStructuredMesh, SphericalGrid):
     t1 = perf_counter()
     print(f"Velocity reconstructed in {t1-t0:g} seconds")
     return
-  
+
+  def extract_subset(
+      self, 
+      voi:list[int]|tuple[int]|np.ndarray, 
+      rate:tuple[int]|list[int]|np.ndarray=(1, 1, 1), 
+      boundary:bool=False
+    ):
+    mesh = super().extract_subset(voi, rate=rate, boundary=boundary)
+    # create a new StructuredCapMesh object from the extracted subset
+    result = StructuredCapMesh(mesh.x, mesh.y, mesh.z, deep=True)
+    # copy the fields from the original mesh to the new mesh
+    for key, value in mesh.point_data.items():
+      result.point_data[key] = value
+    for key, value in mesh.cell_data.items():
+      result.cell_data[key] = value
+    return result
