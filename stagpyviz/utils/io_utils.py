@@ -1,6 +1,11 @@
 import os
 import numpy as np
 
+try:
+  from ..mesh import FEMesh
+except ImportError:
+  from stagpyviz.mesh import FEMesh
+
 class IOutils:
   """
   Class to manage the paths and file management for the postprocessing of StagYY 3D YinYang models.
@@ -217,6 +222,7 @@ class IOutils:
 
     self.regions:list[str] = kwargs.get("regions", ["composition"])
     self.reset_fields:bool = kwargs.get("reset_fields", False)
+    self.mesh_type:FEMesh|None = kwargs.get("mesh_type", None)
 
     self.volume_fields = {
       "basalt":      "bs",

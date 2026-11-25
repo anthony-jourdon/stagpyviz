@@ -6,7 +6,12 @@ import pyvista as pvs
 import stagpyviz as spv
 from time import perf_counter
 
-def add_fields_to_mesh(mesh:spv.YinYangMesh, fields_to_add:list[str], class_fields:dict[str,spv.StagField], regions:list[str]=["composition"]) -> None:
+def add_fields_to_mesh(
+    mesh:spv.YinYangMesh|spv.StructuredCapMesh, 
+    fields_to_add:list[str], 
+    class_fields:dict[str,spv.StagField], 
+    regions:list[str]=["composition"]
+  ) -> None:
   for field in fields_to_add:
     if field == "regions":
       continue # regions require special processing
@@ -37,7 +42,11 @@ def add_fields_to_mesh(mesh:spv.YinYangMesh, fields_to_add:list[str], class_fiel
       mesh.cell_data.pop(field)
   return
 
-def write_mesh(mesh:spv.YinYangMesh|spv.ShellMesh, io_utils:spv.IOutils, outfname:str) -> None:
+def write_mesh(
+    mesh:spv.YinYangMesh|spv.ShellMesh|spv.StructuredCapMesh, 
+    io_utils:spv.IOutils, 
+    outfname:str
+  ) -> None:
   t0 = perf_counter()
   print(f"\tWriting mesh: {outfname}")
   mesh.save(os.path.join(io_utils.output_dir,outfname))
@@ -45,27 +54,41 @@ def write_mesh(mesh:spv.YinYangMesh|spv.ShellMesh, io_utils:spv.IOutils, outfnam
   print(f"\tMesh written in {t1-t0:g} seconds.")
   return
 
-def write_step(mesh:spv.YinYangMesh, io_utils:spv.IOutils, class_fields:dict[str,spv.StagField]) -> None:
-  is_surface = io_utils.is_surface
-  regions_list = io_utils.regions
+def write_step(
+    mesh:spv.YinYangMesh|spv.StructuredCapMesh, 
+    io_utils:spv.IOutils, 
+    class_fields:dict[str,spv.StagField]
+  ) -> None:
+  is_surface    = io_utils.is_surface
+  regions_list  = io_utils.regions
   fields_to_add = io_utils.output_fields
   
   # Add fields to the mesh
   add_fields_to_mesh(mesh, fields_to_add, class_fields, regions_list)
 
-  outfname = f"step{str(io_utils.step).zfill(5)}{io_utils.prefix}.vtu"
-  if is_surface:
-    if os.path.exists(os.path.join(io_utils.output_dir,outfname)) and not io_utils.reset_fields:
-      print(f"\tFound existing output file {outfname}, append required fields.")
-      surface_mesh:spv.ShellMesh = spv.ShellMesh(os.path.join(io_utils.output_dir,outfname))
+  if isinstance(mesh, (spv.YinYangMesh, spv.ShellMesh)):
+    file_extension = ".vtu"
+  elif isinstance(mesh, spv.StructuredCapMesh):
+    file_extension = ".vts"
+  else:
+    raise TypeError(f"Unknown mesh type: {type(mesh)}. Cannot determine file extension for output.")
+  
+  outfname = f"step{str(io_utils.step).zfill(5)}{io_utils.prefix}{file_extension}"
+  if isinstance(mesh, spv.YinYangMesh):
+    if is_surface:
+      if os.path.exists(os.path.join(io_utils.output_dir,outfname)) and not io_utils.reset_fields:
+        print(f"\tFound existing output file {outfname}, append required fields.")
+        surface_mesh:spv.ShellMesh = spv.ShellMesh(os.path.join(io_utils.output_dir,outfname))
+      else:
+        surface_mesh:spv.ShellMesh = mesh.surface_mesh
+      for field in fields_to_add:
+        if field in mesh.point_data:
+          surface_mesh.point_data[field] = mesh.point_data[field][mesh.surface_idx]
+        if field in mesh.cell_data:
+          surface_mesh.cell_data[field] = mesh.cell_data[field][mesh.surface_cells]
+      write_mesh(surface_mesh, io_utils, outfname)
     else:
-      surface_mesh:spv.ShellMesh = mesh.surface_mesh
-    for field in fields_to_add:
-      if field in mesh.point_data:
-        surface_mesh.point_data[field] = mesh.point_data[field][mesh.surface_idx]
-      if field in mesh.cell_data:
-        surface_mesh.cell_data[field] = mesh.cell_data[field][mesh.surface_cells]
-    write_mesh(surface_mesh, io_utils, outfname)
+      write_mesh(mesh, io_utils, outfname)
   else:
     write_mesh(mesh, io_utils, outfname)
   return
@@ -147,7 +170,8 @@ def process_model(iou:spv.IOutils, scaling_factors:dict[str, spv.Scaling]) -> No
   if fname is None:
     raise FileNotFoundError(f"None of the files for the requested fields {iou.output_fields} were found for step {iou.step}. Cannot generate mesh.")
   print(f"Generating volume mesh using file {fname}...")
-  mesh = spv.YinYangMesh(fname, scaling=scaling_factors.get("length", None))
+  # mesh = spv.YinYangMesh(fname, scaling=scaling_factors.get("length", None))
+  mesh = iou.mesh_type(rawbin=fname, scaling=scaling_factors.get("length", None))
   # create the available class instances for the fields that can be added to the mesh
   class_fields = spv.fields_instances(iou, mesh, scaling_factors)
 
@@ -157,7 +181,8 @@ def process_model(iou:spv.IOutils, scaling_factors:dict[str, spv.Scaling]) -> No
       fname = iou.get_field_filename(field, iou.step)
       if fname is not None:
         print(f"Generating mesh for surface fields using file {fname}...")
-        mesh_s = spv.YinYangMesh(fname, scaling=scaling_factors.get("length", None))
+        # mesh_s = spv.YinYangMesh(fname, scaling=scaling_factors.get("length", None))
+        mesh_s = iou.mesh_type(rawbin=fname, scaling=scaling_factors.get("length", None))
         surface_class_fields = spv.surface_fields_instances(iou, mesh, mesh_s, scaling_factors)
         class_fields.update(surface_class_fields)
         break
@@ -168,7 +193,8 @@ def process_model(iou:spv.IOutils, scaling_factors:dict[str, spv.Scaling]) -> No
       fname = iou.get_field_filename(field, iou.step)
       if fname is not None:
         print(f"Generating mesh for surface layer fields using file {fname}...")
-        mesh_l = spv.YinYangMesh(fname, scaling=scaling_factors.get("length", None))
+        # mesh_l = spv.YinYangMesh(fname, scaling=scaling_factors.get("length", None))
+        mesh_l = iou.mesh_type(rawbin=fname, scaling=scaling_factors.get("length", None))
         surface_layer_class_fields = spv.surface_layer_instances(iou, mesh, mesh_l, scaling_factors)
         class_fields.update(surface_layer_class_fields)
         break
@@ -188,7 +214,13 @@ def process_model(iou:spv.IOutils, scaling_factors:dict[str, spv.Scaling]) -> No
       process_step_range(mesh, iou, class_fields)
 
   print(f"Writing pvd file {iou.pvd}")
-  spv.timeseries_write(os.path.join(iou.output_dir,iou.pvd), iou.timeseries, prefix=iou.prefix, extension="vtu", erase=iou.reset_fields)
+  if isinstance(mesh, (spv.YinYangMesh, spv.ShellMesh)):
+    file_extension = "vtu"
+  elif isinstance(mesh, spv.StructuredCapMesh):
+    file_extension = "vts"
+  else:
+    raise TypeError(f"Unknown mesh type: {type(mesh)}. Cannot determine file extension for output.")
+  spv.timeseries_write(os.path.join(iou.output_dir,iou.pvd), iou.timeseries, prefix=iou.prefix, extension=file_extension, erase=iou.reset_fields)
   return
 
 def main():
@@ -322,6 +354,15 @@ def main():
           scaling_kwargs[key+"_"+subkey] = scaling[key][subkey]
       scaling_factors = spv.scaling_factors(**scaling_kwargs)
 
+  mtype = user.get("mesh_type", "yinyang")
+  match mtype:
+    case "yinyang":
+      mesh_type = spv.YinYangMesh
+    case "spherical_cap":
+      mesh_type = spv.StructuredCapMesh
+    case _:
+      raise ValueError(f"Unknown mesh type: {mtype}. Supported types are: \"yinyang\" or \"spherical_cap\".")
+
   io_utils = spv.IOutils(
     model_name=paths["model"],
     model_dir=paths["directory"],
@@ -337,6 +378,7 @@ def main():
     is_surface=is_surface,
     reset_fields=reset,
     prefix=prefix,
+    mesh_type=mesh_type
   )
   process_model(io_utils,scaling_factors)
   exit(0)
